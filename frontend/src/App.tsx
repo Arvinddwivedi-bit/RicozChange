@@ -35,21 +35,58 @@ export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null)
   const [tick, setTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [waking, setWaking] = useState(false)
 
   useEffect(() => {
-    api<Bootstrap>('/api/bootstrap')
-      .then(setBoot)
-      .catch((e) => setError(String(e)))
+    setError(null)
+    setWaking(false)
+
+    let attempts = 0
+    const maxAttempts = 12   // 12 × 8s = ~96s total wait (covers Render cold start)
+    let cancelled = false
+
+    async function tryFetch() {
+      while (attempts < maxAttempts && !cancelled) {
+        try {
+          const data = await api<Bootstrap>('/api/bootstrap')
+          if (!cancelled) { setBoot(data); setWaking(false) }
+          return
+        } catch {
+          attempts++
+          if (attempts === 1) setWaking(true)   // show "waking up" after first fail
+          if (attempts >= maxAttempts) {
+            if (!cancelled) setError('Could not reach backend after 90 s.')
+            return
+          }
+          await new Promise((r) => setTimeout(r, 8000))  // wait 8 s between retries
+        }
+      }
+    }
+
+    tryFetch()
+    return () => { cancelled = true }
   }, [tick])
+
+  if (waking && !boot && !error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8">
+        <div className="card p-6 max-w-md text-center">
+          <div className="text-2xl mb-3">⏳</div>
+          <h1 className="font-bold text-lg mb-2">Waking up the server…</h1>
+          <p className="text-sm text-slate-500">
+            Free hosting spins down after inactivity. This takes up to 60 seconds on first load.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="card p-6 max-w-md">
           <h1 className="font-bold text-lg mb-2">Backend unreachable</h1>
-          <p className="text-sm text-slate-600 mb-4">
-            Start the API with <code>uvicorn ricozchange.main:app</code> and reload.
-          </p>
+          <p className="text-sm text-slate-600 mb-4 font-mono text-xs">{error}</p>
           <button className="btn btn-primary" onClick={() => setTick((t) => t + 1)}>
             Retry
           </button>
