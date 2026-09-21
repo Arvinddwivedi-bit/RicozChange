@@ -155,6 +155,11 @@ class NotificationActionIn(BaseModel):
 
 # ---------- generic list endpoints ----------
 
+@app.get("/")
+def root() -> dict:
+    return {"status": "ok", "service": "RicozChange API", "docs": "/docs"}
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "time": datetime.now().isoformat()}

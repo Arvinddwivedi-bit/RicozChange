@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type ChangeT } from '../api'
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 import { ChangeRowMeta, ScoreBadge, StatusBadge, TypeBadge } from '../components/Components'
 
 const STATUSES = ['all', 'draft', 'submitted', 'approved', 'implementing', 'completed', 'failed', 'rejected', 'cancelled']
@@ -28,7 +29,7 @@ export default function Changes() {
     if (!file) return
     const form = new FormData()
     form.append('file', file)
-    const res = await fetch('/api/changes/import-csv', { method: 'POST', body: form })
+    const res = await fetch(API_BASE + '/api/changes/import-csv', { method: 'POST', body: form })
     const data = await res.json()
     if (res.ok) {
       setImportMsg(`Imported ${data.created} change(s)` + (data.errors.length ? ` · ${data.errors.length} row(s) skipped: ${data.errors[0]}` : ''))
