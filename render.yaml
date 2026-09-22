@@ -6,7 +6,7 @@ services:
   - type: web
     name: ricozchange
     runtime: docker
-    dockerfilePath: ./Dockerfile.render
+    dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /api/health
     autoDeploy: true

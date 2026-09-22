@@ -100,6 +100,6 @@ frontend/
                      GraphPage, CABPage, SlackDemo, Freezes
   src/components/    RiskWhy panel, BlastRadiusGraph (React Flow)
 docker-compose.yml   api + web (nginx serving the built SPA)
-Dockerfile.render    single-service image (SPA baked into the API) for Render
+Dockerfile    single-service image (SPA baked into the API) for Render
 render.yaml          Render Blueprint: web service + free managed Postgres
 ```
