@@ -56,8 +56,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    dbmod.init_db()
+    # Migrate BEFORE create_all: on an existing database, create_all would
+    # create brand-new tables (e.g. `settings`) that the next migration then
+    # tries to create again. Migrating first keeps them from racing.
     _run_migrations()
+    dbmod.init_db()
     if config.AUTO_SEED:
         db = dbmod.SessionLocal()
         try:
@@ -69,9 +72,11 @@ def on_startup() -> None:
 def _run_migrations() -> None:
     """Bring the database to the current schema, whatever its age.
 
-    - Fresh database: create_all already built the schema at head → stamp head.
-    - Pre-migration database (users exists, no alembic_version): adopt at the
-      baseline revision, then upgrade (applies every later migration).
+    Runs BEFORE create_all (see on_startup).
+    - Fresh database (no tables): mark at head; create_all then builds the
+      full schema matching the models.
+    - Legacy unversioned database (users exists, no alembic_version): adopt at
+      the baseline revision, then upgrade (applies every later migration).
     - Already-versioned database: just upgrade.
     Never blocks startup on failure — the app still runs, migrations retry next boot.
     """
