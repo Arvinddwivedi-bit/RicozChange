@@ -87,3 +87,35 @@ def _select_jwk(token: str) -> dict:
 
 
 require_actor = get_actor  # explicit alias for route dependencies
+
+
+def require_role(*roles: str):
+    """Dependency factory: allow only the listed roles (demo actor is admin).
+
+    Denied attempts are audit-logged before the 403 is raised, so the trail
+    records unauthorized-action attempts per the phase-2 PRD.
+    """
+
+    def dep(
+        actor: User = Depends(require_actor),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if actor.role not in roles:
+            from .audit import log_action
+
+            log_action(
+                db,
+                "auth",
+                0,
+                "denied",
+                actor=actor.name,
+                detail=f"role '{actor.role}' not in {sorted(roles)}",
+            )
+            db.commit()
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires role: {' or '.join(sorted(roles))}",
+            )
+        return actor
+
+    return dep

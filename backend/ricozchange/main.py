@@ -17,7 +17,7 @@ from . import config, db as dbmod
 from . import services
 from .ai_drafting import draft_change_docs
 from .audit import log_action
-from .auth import get_actor, require_actor
+from .auth import get_actor, require_actor, require_role
 from .models import (
     Approval,
     AuditLog,
@@ -56,12 +56,34 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     dbmod.init_db()
+    _stamp_alembic_baseline()
     if config.AUTO_SEED:
         db = dbmod.SessionLocal()
         try:
             services.seed_demo_data(db)
         finally:
             db.close()
+
+
+def _stamp_alembic_baseline() -> None:
+    """Mark databases created via create_all at the alembic baseline, so future
+    migrations apply incrementally instead of colliding with existing tables.
+    Never blocks startup on failure."""
+    try:
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+        from sqlalchemy import inspect
+
+        tables = inspect(dbmod.engine).get_table_names()
+        if "alembic_version" in tables or "users" not in tables:
+            return
+        base = Path(__file__).resolve().parent.parent
+        cfg = AlembicConfig(str(base / "alembic.ini"))
+        cfg.set_main_option("script_location", str(base / "alembic"))
+        command.stamp(cfg, "head")
+        print("alembic: stamped existing database at baseline")
+    except Exception as exc:  # noqa: BLE001
+        print(f"alembic baseline stamp skipped: {exc}")
 
 
 # ---------- helpers ----------
@@ -71,6 +93,17 @@ def get_change_or_404(db: Session, change_id: int) -> Change:
     if change is None:
         raise HTTPException(status_code=404, detail="Change not found")
     return change
+
+
+def _deny(db: Session, actor: User, entity_type: str, entity_id: int, reason: str) -> None:
+    """Audit-log a denied attempt (committed so it survives the 403) and raise."""
+    log_action(db, entity_type, entity_id, "denied", actor=actor.name, detail=reason)
+    db.commit()
+    raise HTTPException(status_code=403, detail=reason)
+
+
+def _is_owner_or_manager(actor: User, change: Change) -> bool:
+    return actor.role in ("admin", "manager") or change.owner_id == actor.id
 
 
 # ---------- schemas ----------
@@ -354,6 +387,8 @@ def create_change(payload: ChangeIn, db: Session = Depends(dbmod.get_db), actor:
 @app.patch("/api/changes/{change_id}")
 def patch_change(change_id: int, payload: ChangePatch, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
     change = get_change_or_404(db, change_id)
+    if not _is_owner_or_manager(actor, change):
+        _deny(db, actor, "change", change.id, "only the change owner can edit a draft change")
     if change.status not in ("draft", "rejected"):
         raise HTTPException(status_code=409, detail=f"Change is {change.status}; only draft/rejected changes can be edited")
 
@@ -381,6 +416,8 @@ def patch_change(change_id: int, payload: ChangePatch, db: Session = Depends(dbm
 @app.post("/api/changes/{change_id}/submit")
 def submit(change_id: int, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
     change = get_change_or_404(db, change_id)
+    if not _is_owner_or_manager(actor, change):
+        _deny(db, actor, "change", change.id, "only the change owner can submit a change")
     if change.status != "draft":
         raise HTTPException(status_code=409, detail=f"Only draft changes can be submitted (currently {change.status})")
     if not change.systems:
@@ -393,6 +430,8 @@ def submit(change_id: int, db: Session = Depends(dbmod.get_db), actor: User = De
 @app.post("/api/changes/{change_id}/status")
 def set_status(change_id: int, payload: StatusIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
     change = get_change_or_404(db, change_id)
+    if not _is_owner_or_manager(actor, change):
+        _deny(db, actor, "change", change.id, "only the change owner can update the status")
     try:
         services.transition(db, change, payload.status, actor=actor.name, detail=payload.detail)
     except ValueError as exc:
@@ -404,11 +443,13 @@ def set_status(change_id: int, payload: StatusIn, db: Session = Depends(dbmod.ge
 
 
 @app.post("/api/changes/{change_id}/approvals")
-def decide_approvals(change_id: int, payload: ApprovalsIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+def decide_approvals(change_id: int, payload: ApprovalsIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("approver", "manager", "admin"))) -> dict:
     """Web one-click decision across the actor's pending approvals (fast-track style)."""
     if payload.decision not in ("approved", "rejected"):
         raise HTTPException(status_code=400, detail="decision must be approved or rejected")
     change = get_change_or_404(db, change_id)
+    if change.owner_id == actor.id:
+        _deny(db, actor, "change", change.id, "you cannot approve your own change")
     mine = [a for a in change.approvals if a.decision == "pending" and a.approver_id == actor.id]
     if not mine:
         raise HTTPException(status_code=409, detail="No pending approval for you on this change")
@@ -454,6 +495,8 @@ def post_change(change_id: int, payload: PostChangeIn, db: Session = Depends(dbm
     if payload.result not in ("success", "failed", "partial"):
         raise HTTPException(status_code=400, detail="result must be success, failed or partial")
     change = get_change_or_404(db, change_id)
+    if not _is_owner_or_manager(actor, change):
+        _deny(db, actor, "change", change.id, "only the change owner can record the post-change result")
     if change.status not in ("completed", "failed"):
         raise HTTPException(status_code=409, detail="Record the post-change check after the window closes")
     services.record_post_change(db, change, payload.result, payload.notes)
@@ -474,7 +517,7 @@ def change_audit(change_id: int, db: Session = Depends(dbmod.get_db)) -> list[di
 
 
 @app.post("/api/changes/import-csv")
-def import_csv(file: UploadFile = File(...), db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+def import_csv(file: UploadFile = File(...), db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("manager", "admin"))) -> dict:
     content = file.file.read().decode("utf-8-sig")
     try:
         result = services.import_changes_csv(db, content, actor=actor.name)
@@ -532,7 +575,7 @@ def my_approvals(db: Session = Depends(dbmod.get_db), actor: User = Depends(requ
 
 
 @app.post("/api/approvals/{approval_id}")
-def decide_approval(approval_id: int, payload: ApprovalIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+def decide_approval(approval_id: int, payload: ApprovalIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("approver", "manager", "admin"))) -> dict:
     approval = db.get(Approval, approval_id)
     if approval is None:
         raise HTTPException(status_code=404, detail="Approval not found")
@@ -543,6 +586,8 @@ def decide_approval(approval_id: int, payload: ApprovalIn, db: Session = Depends
     change = db.get(Change, approval.change_id)
     if change is None:
         raise HTTPException(status_code=404, detail="Change not found")
+    if change.owner_id == actor.id:
+        _deny(db, actor, "change", change.id, "you cannot approve your own change")
     outcome = services.record_approval(db, change, approval, payload.decision, payload.comment, source="web")
     db.commit()
     return outcome
@@ -604,7 +649,7 @@ def get_cab(meeting_id: int, db: Session = Depends(dbmod.get_db)) -> dict:
 
 
 @app.post("/api/cab", status_code=201)
-def create_cab(payload: CABCreateIn, db: Session = Depends(dbmod.get_db)) -> dict:
+def create_cab(payload: CABCreateIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("manager", "admin"))) -> dict:
     meeting = CABMeeting(scheduled_at=payload.scheduled_at, notes=payload.notes)
     db.add(meeting)
     db.commit()
@@ -613,7 +658,7 @@ def create_cab(payload: CABCreateIn, db: Session = Depends(dbmod.get_db)) -> dic
 
 
 @app.post("/api/cab/{meeting_id}/items", status_code=201)
-def add_cab_item(meeting_id: int, payload: CABAddItemIn, db: Session = Depends(dbmod.get_db)) -> dict:
+def add_cab_item(meeting_id: int, payload: CABAddItemIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("manager", "admin"))) -> dict:
     meeting = db.get(CABMeeting, meeting_id)
     if meeting is None:
         raise HTTPException(status_code=404, detail="CAB meeting not found")
@@ -629,7 +674,7 @@ def add_cab_item(meeting_id: int, payload: CABAddItemIn, db: Session = Depends(d
 
 
 @app.post("/api/cab/items/{item_id}/decide")
-def decide_cab_item(item_id: int, payload: CABDecideIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+def decide_cab_item(item_id: int, payload: CABDecideIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("manager", "admin"))) -> dict:
     item = db.get(CABItem, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="CAB item not found")
@@ -653,7 +698,7 @@ def list_freezes(db: Session = Depends(dbmod.get_db)) -> list[dict]:
 
 
 @app.post("/api/freezes", status_code=201)
-def create_freeze(payload: FreezeIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+def create_freeze(payload: FreezeIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("manager", "admin"))) -> dict:
     if payload.ends_at <= payload.starts_at:
         raise HTTPException(status_code=400, detail="ends_at must be after starts_at")
     freeze = FreezeWindow(
@@ -691,6 +736,10 @@ def act_on_notification(notification_id: int, payload: NotificationActionIn, db:
     change = db.get(Change, note.change_id) if note.change_id else None
     if approval is None or change is None:
         raise HTTPException(status_code=404, detail="Approval or change not found")
+    if actor.role not in ("admin", "manager") and approval.approver_id != actor.id:
+        _deny(db, actor, "notification", note.id, "only the assigned approver can act on this message")
+    if change.owner_id == actor.id:
+        _deny(db, actor, "change", change.id, "you cannot approve your own change")
 
     decision = "approved" if payload.action == "approve" else "rejected"
     services.record_approval(db, change, approval, decision, payload.comment, source="slack")

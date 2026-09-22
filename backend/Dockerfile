@@ -5,6 +5,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ricozchange ./ricozchange
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 ENV AUTO_SEED=1
 EXPOSE 8000
 

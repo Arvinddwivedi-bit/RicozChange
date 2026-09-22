@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi import Depends
+from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -19,6 +21,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 from ricozchange import config, db as dbmod  # noqa: E402
 from ricozchange.main import app  # noqa: E402
 from ricozchange import services  # noqa: E402
+from ricozchange.auth import require_actor  # noqa: E402
+from ricozchange.models import Approval, User  # noqa: E402
 
 
 @pytest.fixture()
@@ -26,6 +30,16 @@ def client():
     dbmod.init_db()
     with TestClient(app) as c:
         yield c
+    app.dependency_overrides.pop(require_actor, None)
+
+
+def _as_user(email: str):
+    """Act as a specific seeded user (used where the owner rule forbids self-approval)."""
+
+    def dep(db: Session = Depends(dbmod.get_db)):
+        return db.execute(select(User).where(User.email == email)).scalars().one()
+
+    app.dependency_overrides[require_actor] = dep
 
 
 def _db():
@@ -94,13 +108,21 @@ def test_risky_change_requires_approval_and_slack_flow(client):
     mine = [n for n in notifications if n["change_id"] == change["id"] and not n["acted"]]
     assert mine, "approval request notifications must be queued"
 
-    # Approve via the Slack-demo action endpoint.
+    # Approve via the Slack-demo action endpoint. The change is owned by the
+    # demo actor, so the assigned approver must act (owner-cannot-approve-own).
+    with dbmod.SessionLocal() as db:
+        approval = db.get(Approval, mine[0]["approval_id"])
+        approver_email = db.get(User, approval.approver_id).email
+    _as_user(approver_email)
     acted = client.post(
         f"/api/notifications/{mine[0]['id']}/act", json={"action": "approve", "comment": "lgtm"}
     )
     assert acted.status_code == 200
     detail = client.get(f"/api/changes/{change['id']}").json()
     assert detail["status"] == "approved"
+
+    # Back to the owner for execution (approvers decide, owners implement).
+    app.dependency_overrides.pop(require_actor, None)
 
     # Implement → complete → post-change check feeds CFR.
     assert client.post(f"/api/changes/{change['id']}/status", json={"status": "implementing"}).status_code == 200
