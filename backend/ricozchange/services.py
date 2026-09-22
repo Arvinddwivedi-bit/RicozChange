@@ -379,6 +379,11 @@ def seed_demo_data(db: Session) -> None:
     db.flush()
     score_and_persist(db, risky)
 
+    # Submitted (not draft) so that a Slack approval resolves the change through
+    # the any-of policy — record_approval only transitions submitted changes.
+    risky.status = "submitted"
+    log_action(db, "change", risky.id, "status:submitted", actor="system seed", detail="demo scenario: awaiting approval")
+
     for approver in (users["arjun@Ricozchange.dev"], users["sara@Ricozchange.dev"]):
         db.add(Approval(change_id=risky.id, approver_id=approver.id))
     db.flush()

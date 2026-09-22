@@ -4,6 +4,7 @@ import { api, type Bootstrap } from './api'
 import Dashboard from './pages/Dashboard'
 import Changes from './pages/Changes'
 import ChangeDetail from './pages/ChangeDetail'
+import ChangeForm from './pages/ChangeForm'
 import Simulator from './pages/Simulator'
 import GraphPage from './pages/GraphPage'
 import CABPage from './pages/CABPage'
@@ -139,6 +140,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/changes" element={<Changes />} />
+            <Route path="/changes/new" element={<ChangeForm />} />
             <Route path="/changes/:id" element={<ChangeDetail />} />
             <Route path="/simulator" element={<Simulator />} />
             <Route path="/graph" element={<GraphPage />} />
