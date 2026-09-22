@@ -1,10 +1,14 @@
 """FastAPI entry point."""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles  # noqa: F401  (kept for future asset serving)
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -155,7 +159,7 @@ class NotificationActionIn(BaseModel):
 
 # ---------- generic list endpoints ----------
 
-@app.get("/")
+@app.get("/api")
 def root() -> dict:
     return {"status": "ok", "service": "RicozChange API", "docs": "/docs"}
 
@@ -733,3 +737,24 @@ def all_audit(limit: int = Query(default=100, le=500), db: Session = Depends(dbm
          "actor": e.actor, "detail": e.detail, "created_at": e.created_at.isoformat()}
         for e in rows
     ]
+
+
+# ---------- static SPA (single-service deploy) ----------
+
+# When the built frontend is baked into the image (Render single-service deploy),
+# serve it from the same origin: no CORS config, one URL for your manager.
+# Registered last, so every /api route above wins; unknown paths fall back to
+# index.html so React Router deep links (/changes/7) work on a fresh load.
+SPA_DIR = Path(os.getenv("SPA_DIR", Path(__file__).resolve().parent.parent / "static"))
+if SPA_DIR.is_dir() and (SPA_DIR / "index.html").exists():
+    _SPA_ROOT = SPA_DIR.resolve()
+    _INDEX = _SPA_ROOT / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str) -> FileResponse:
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        candidate = (SPA_DIR / full_path).resolve()
+        if candidate.is_relative_to(_SPA_ROOT) and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_INDEX)

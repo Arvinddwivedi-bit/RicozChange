@@ -1,0 +1,9 @@
+# Keep the build context small (the root Dockerfile.render copies both halves).
+backend/.venv
+backend/**/__pycache__
+frontend/node_modules
+frontend/dist
+data
+*.log
+.git
+.env

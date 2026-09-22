@@ -35,6 +35,32 @@ Open http://localhost:5173. The database seeds itself on first boot with systems
 dependency edges, a freeze window, CAB meeting, history and one risky pending change
 (#7 — approve it from the Slack demo page).
 
+## Deploy to Render (free, one URL for your manager)
+
+The repo ships a Render Blueprint: one free web service (FastAPI serving the built SPA — no CORS setup, single URL) plus a free managed Postgres, linked automatically.
+
+**1. Push the deploy files** (if not already pushed):
+
+```bash
+git add -A
+git commit -m "deploy: Render blueprint (single service + free Postgres)"
+git push
+```
+
+**2. Two clicks on Render:**
+
+1. Sign in at [dashboard.render.com](https://dashboard.render.com) with GitHub (free account).
+2. **New → Blueprint** → pick the `RicozChange` repo (grant access if prompted) → **Apply**.
+3. Wait ~5 minutes for the first build. Your URL appears at the top: `https://ricozchange-xxxx.onrender.com`.
+
+Good to know:
+
+- First load after inactivity takes up to ~60 s (free tier spins down); the app shows a "Waking up…" screen and retries automatically.
+- Data lives in the free Postgres (1 GB, expires after 30 days — recreate the database or upgrade to keep it). Seeding runs automatically whenever the database is empty.
+- Enable Claude drafting any time: service → **Environment** → add `ANTHROPIC_API_KEY`.
+- Every push to `main` auto-deploys.
+- `ANTHROPIC_API_KEY`, `GATE_BY_DEMO_USER`, Clerk vars: same names as local config (see `backend/.env.example`); none are required.
+
 ## 3-minute demo script
 
 1. **Dashboard** — CFR KPI and top open risk.
@@ -74,4 +100,6 @@ frontend/
                      GraphPage, CABPage, SlackDemo, Freezes
   src/components/    RiskWhy panel, BlastRadiusGraph (React Flow)
 docker-compose.yml   api + web (nginx serving the built SPA)
+Dockerfile.render    single-service image (SPA baked into the API) for Render
+render.yaml          Render Blueprint: web service + free managed Postgres
 ```

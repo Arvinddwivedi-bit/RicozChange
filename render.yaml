@@ -1,0 +1,26 @@
+# Render Blueprint — one-click deploy of RicozChange (web + managed Postgres).
+# In the Render dashboard: New → Blueprint → pick this repo → Apply.
+# Or use the "Deploy to Render" button in the README.
+
+services:
+  - type: web
+    name: ricozchange
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ricozchange-db
+          property: connectionString
+      - key: AUTO_SEED
+        value: "1"
+
+databases:
+  # Render free Postgres: 1 GB, expires after 30 days (recreate or upgrade then).
+  - name: ricozchange-db
+    plan: free
+    databaseName: ricozchange
+    user: ricozchange

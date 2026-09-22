@@ -11,7 +11,23 @@ def _bool(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'Ricozchange.db'}")
+def _normalize_database_url(raw: str) -> str:
+    """Accept the URL shapes platforms hand us and map them to installed drivers.
+
+    - Render/Heroku/Neon hand out postgres:// or postgresql:// (SQLAlchemy would
+      default to psycopg2, which is not installed) -> rewrite to psycopg 3.
+    - postgresql+psycopg:// already explicit -> keep as-is.
+    """
+    if raw.startswith("postgres://"):
+        raw = "postgresql+psycopg://" + raw[len("postgres://"):]
+    elif raw.startswith("postgresql://"):
+        raw = "postgresql+psycopg://" + raw[len("postgresql://"):]
+    return raw
+
+
+DATABASE_URL = _normalize_database_url(
+    os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR / 'Ricozchange.db'}")
+)
 
 # Seeding: creates demo data on first boot (skipped automatically if data exists)
 AUTO_SEED = _bool("AUTO_SEED", True)
