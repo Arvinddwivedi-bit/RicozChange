@@ -5,10 +5,10 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles  # noqa: F401  (kept for future asset serving)
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -32,6 +32,7 @@ from .models import (
     SystemNode,
     User,
 )
+from . import slack_app
 from .notifications import serialize_notification
 from .risk_engine import (
     evaluate_change,
@@ -56,7 +57,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     dbmod.init_db()
-    _stamp_alembic_baseline()
+    _run_migrations()
     if config.AUTO_SEED:
         db = dbmod.SessionLocal()
         try:
@@ -65,25 +66,34 @@ def on_startup() -> None:
             db.close()
 
 
-def _stamp_alembic_baseline() -> None:
-    """Mark databases created via create_all at the alembic baseline, so future
-    migrations apply incrementally instead of colliding with existing tables.
-    Never blocks startup on failure."""
+def _run_migrations() -> None:
+    """Bring the database to the current schema, whatever its age.
+
+    - Fresh database: create_all already built the schema at head → stamp head.
+    - Pre-migration database (users exists, no alembic_version): adopt at the
+      baseline revision, then upgrade (applies every later migration).
+    - Already-versioned database: just upgrade.
+    Never blocks startup on failure — the app still runs, migrations retry next boot.
+    """
     try:
         from alembic import command
         from alembic.config import Config as AlembicConfig
         from sqlalchemy import inspect
 
         tables = inspect(dbmod.engine).get_table_names()
-        if "alembic_version" in tables or "users" not in tables:
-            return
         base = Path(__file__).resolve().parent.parent
         cfg = AlembicConfig(str(base / "alembic.ini"))
         cfg.set_main_option("script_location", str(base / "alembic"))
-        command.stamp(cfg, "head")
-        print("alembic: stamped existing database at baseline")
+        if "alembic_version" not in tables:
+            if "users" not in tables:
+                command.stamp(cfg, "head")
+                print("alembic: stamped fresh database at head")
+                return
+            command.stamp(cfg, "d8013b0b6b62")  # baseline schema
+            print("alembic: stamped existing database at baseline")
+        command.upgrade(cfg, "head")
     except Exception as exc:  # noqa: BLE001
-        print(f"alembic baseline stamp skipped: {exc}")
+        print(f"alembic migrations skipped: {exc}")
 
 
 # ---------- helpers ----------
@@ -188,6 +198,10 @@ class SimulatorIn(BaseModel):
 class NotificationActionIn(BaseModel):
     action: str  # approve | reject
     comment: str = ""
+
+
+class SlackLinkIn(BaseModel):
+    slack_id: str = ""
 
 
 # ---------- generic list endpoints ----------
@@ -786,6 +800,97 @@ def all_audit(limit: int = Query(default=100, le=500), db: Session = Depends(dbm
          "actor": e.actor, "detail": e.detail, "created_at": e.created_at.isoformat()}
         for e in rows
     ]
+
+
+# ---------- Slack integration (phase 2, week 2) ----------
+
+@app.get("/api/integrations/slack/status")
+def slack_status(db: Session = Depends(dbmod.get_db)) -> dict:
+    """Connection status for the integrations UI."""
+    connected = slack_app.is_connected(db)
+    out = {"connected": connected}
+    if connected and config.SLACK_CLIENT_ID:
+        out["install_url"] = slack_app.oauth_access_url(
+            config.SLACK_CLIENT_ID,
+            config.SLACK_REDIRECT_URI or f"{config.PUBLIC_BASE_URL}/api/integrations/slack/oauth/callback",
+            state="install",
+        )
+    return out
+
+
+@app.get("/api/integrations/slack/install")
+def slack_install(db: Session = Depends(dbmod.get_db)) -> object:
+    if not config.SLACK_CLIENT_ID:
+        raise HTTPException(status_code=501, detail="Slack OAuth is not configured (set SLACK_CLIENT_ID / SLACK_CLIENT_SECRET)")
+    url = slack_app.oauth_access_url(
+        config.SLACK_CLIENT_ID,
+        config.SLACK_REDIRECT_URI or f"{config.PUBLIC_BASE_URL}/api/integrations/slack/oauth/callback",
+        state="install",
+    )
+    return RedirectResponse(url)
+
+
+@app.get("/api/integrations/slack/oauth/callback")
+def slack_oauth_callback(code: str = Query(...), state: str = Query(default=""), db: Session = Depends(dbmod.get_db)) -> object:
+    try:
+        data = slack_app.exchange_oauth_code(
+            code,
+            config.SLACK_REDIRECT_URI or f"{config.PUBLIC_BASE_URL}/api/integrations/slack/oauth/callback",
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    team = data.get("team") or {}
+    bot = data.get("access_token", "")
+    slack_app.save_settings(
+        db,
+        bot_token=bot,
+        team_id=team.get("id", ""),
+        team_name=team.get("name", ""),
+        bot_user_id=data.get("bot_user", {}).get("app_id", "") if isinstance(data.get("bot_user"), dict) else data.get("bot_user", ""),
+        installed_at=datetime.now().isoformat(),
+    )
+    log_action(db, "system", 0, "slack_installed", actor="oauth", detail=f"team {team.get('name', team.get('id', '?'))}")
+    db.commit()
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding-top:3rem'>"
+        "<h2>✅ RicozChange is connected to Slack</h2>"
+        f"<p>Workspace: <b>{team.get('name', '?')}</b> — you can close this tab.</p>"
+        "</body></html>"
+    )
+
+
+@app.post("/api/slack/interactions")
+async def slack_interactions(request: Request, db: Session = Depends(dbmod.get_db)) -> object:
+    """Inbound Slack interactive payloads (approve/reject buttons)."""
+    body = await request.body()
+    settings = slack_app.get_settings(db)
+    ts = request.headers.get("x-slack-signature-timestamp", "")
+    sig = request.headers.get("x-slack-signature", "")
+    if not slack_app.verify_signature(settings.get("signing_secret", ""), ts, body, sig):
+        log_action(db, "system", 0, "slack_interaction_rejected", actor="slack", detail="invalid signature")
+        db.commit()
+        raise HTTPException(status_code=401, detail="invalid Slack signature")
+
+    payload = slack_app.parse_interaction_body(body)
+    result = slack_app.handle_interaction(db, payload)
+    db.commit()
+    return JSONResponse(result)
+
+
+@app.post("/api/users/{user_id}/slack-link")
+def link_slack(user_id: int, payload: SlackLinkIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin"))) -> dict:
+    """Admin manual link (fallback when email autolink can't match)."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if payload.slack_id:
+        clash = db.execute(select(User).where(User.slack_id == payload.slack_id, User.id != user.id)).scalars().first()
+        if clash:
+            raise HTTPException(status_code=409, detail=f"slack_id already linked to {clash.name}")
+    user.slack_id = payload.slack_id or None
+    log_action(db, "user", user.id, "slack_link", actor=actor.name, detail=payload.slack_id or "unlinked")
+    db.commit()
+    return {"id": user.id, "name": user.name, "slack_id": user.slack_id}
 
 
 # ---------- static SPA (single-service deploy) ----------

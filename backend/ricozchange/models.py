@@ -14,6 +14,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from sqlalchemy import UniqueConstraint
+
 from .db import Base
 
 
@@ -31,6 +33,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     role: Mapped[str] = mapped_column(String(40), default="engineer")  # admin|manager|approver|engineer
     clerk_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    slack_id: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -237,4 +240,20 @@ class Notification(Base):
     acted: Mapped[bool] = mapped_column(default=False)
     acted_action: Mapped[str | None] = mapped_column(String(20), nullable=True)
     read: Mapped[bool] = mapped_column(default=False)
+    # Real-Slack delivery audit (all None in demo mode)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    slack_channel: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    slack_ts: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    delivery_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class Setting(Base):
+    """Key/value integration settings (Slack bot token, signing secret version, ...).
+    Values are JSON so a setting can hold structured data without a migration."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

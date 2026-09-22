@@ -13,6 +13,7 @@ AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite f
 | **Auto fast-track** — standard templates under score 25 approve in one click | Submit any standard change |
 | **AI-drafted rollback / test / comms plans** — human-approved, never auto-applied | Detail page → "AI drafting" |
 | **Slack-style approvals** — approve with the "why" inline | `/slack` demo outbox |
+| **Real Slack integration** (phase 2) — OAuth install, DMs with the "why", approve/reject buttons in Slack, signed callbacks | Slack setup below |
 | **Post-change check + CFR dashboard** — "did it work?" feeds the failure rate | Dashboard KPI |
 
 ## Quickstart (no API keys needed)
@@ -69,6 +70,25 @@ Good to know:
 4. **Simulator** — drag the window slider; show score, collisions and blast radius moving live.
 5. Back on the change: **Start implementing → Mark completed → post-change check** → dashboard CFR updates.
 
+## Real Slack integration (phase 2, week 2)
+
+The demo outbox (`/slack`) stays the source of truth. When a Slack app is installed, every
+approval request is additionally DM'd to mapped approvers, and the ✅/❌ buttons in Slack
+resolve the change through the same any-of policy as the web app.
+
+1. Create the app from `slack-app-manifest.yml` (api.slack.com/apps → *From an app manifest*).
+2. Put `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET` in the environment
+   (and `SLACK_REDIRECT_URI=https://<host>/api/integrations/slack/oauth/callback` if not on Render).
+3. Set the app's **Interactivity Request URL** to `https://<host>/api/slack/interactions`.
+4. Visit `/api/integrations/slack/install` as a workspace admin → consent → the bot token is
+   stored in the DB (`settings` table) — no redeploy needed on reinstall.
+5. Link approvers: automatic on first Slack action when the workspace email matches the app
+   user's email, or manually via `POST /api/users/{id}/slack-link` (admin).
+
+Behavioral guarantees (all tested): invalid signature → 401 + audit entry; Slack unreachable →
+delivery error recorded on the outbox row, web approvals keep working; replayed button clicks →
+idempotent; unlinked actor → ephemeral "link your account" hint.
+
 ## Configuration (all optional)
 
 Copy `backend/.env.example` → `.env`. Highlights:
@@ -76,6 +96,7 @@ Copy `backend/.env.example` → `.env`. Highlights:
 - `ANTHROPIC_API_KEY` — enables Claude-drafted plans; without it, deterministic template drafts are used.
 - `DATABASE_URL` — defaults to SQLite at `data/Ricozchange.db`; use Postgres in production.
 - `GATE_BY_DEMO_USER=true` + Clerk vars — real auth via Clerk JWKS; demo mode is single-user.
+- `SLACK_*` — the real Slack integration (see above); all empty = demo outbox only.
 
 ## Tests
 

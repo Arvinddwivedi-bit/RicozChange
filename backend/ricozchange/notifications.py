@@ -12,6 +12,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from . import slack_app
 from .models import Approval, Change, Notification, User
 
 APPROVER_ROLES = ("manager", "approver", "admin")
@@ -78,6 +79,13 @@ def queue_approval_requests(db: Session, change: Change) -> list[Notification]:
         db.add(note)
         created.append(note)
     db.flush()
+    # Mirror to a real Slack workspace when installed (no-op in demo mode —
+    # deliver_pending returns 0 without a bot token). Failures are recorded on
+    # the outbox rows; the workflow itself never depends on Slack being up.
+    try:
+        slack_app.deliver_pending(db)
+    except Exception:  # noqa: BLE001 — delivery must never break submission
+        pass
     return created
 
 

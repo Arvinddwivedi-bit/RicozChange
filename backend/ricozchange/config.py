@@ -43,6 +43,15 @@ CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "")
 CLERK_AUDIENCE = os.getenv("CLERK_AUDIENCE", "")
 
+# Slack integration (phase 2). Env vars bootstrap; DB settings (set via OAuth
+# install) take precedence. Leave empty to stay in demo-outbox mode.
+SLACK_CLIENT_ID = os.getenv("SLACK_CLIENT_ID", "")
+SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", "")
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
+SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET", "")
+SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI", "")  # e.g. https://<host>/api/integrations/slack/oauth/callback
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ricozchange-1y64.onrender.com")
+
 # Claude API for AI drafting. Without a key, template-based drafting is used.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
