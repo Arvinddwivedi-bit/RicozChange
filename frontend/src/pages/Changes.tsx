@@ -54,10 +54,10 @@ export default function Changes() {
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onImport} />
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
-            ⬆ Import CSV
+            Import CSV
           </button>
           <Link to="/changes/new" className="btn btn-primary">
-            + New change
+            New change
           </Link>
         </div>
       </div>

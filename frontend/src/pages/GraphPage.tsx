@@ -40,6 +40,7 @@ export default function GraphPage() {
           The live dependency map. Pick an active change: red = what it touches, pulsing = where it collides with someone else's work.
         </p>
       </div>
+      <div className="min-w-0">
 
       <div className="flex flex-wrap items-center gap-2">
         <select className="input max-w-md" value={selectedId ?? ''} onChange={(e) => setSelectedId(Number(e.target.value))}>
@@ -64,10 +65,11 @@ export default function GraphPage() {
         pulseIds={pulseIds}
         height={540}
       />
+      </div>
 
       {detail && (detail.collisions?.length || 0) > 0 && (
         <div className="card p-4 text-sm text-amber-800 bg-amber-50 border-amber-200">
-          Overlaps {detail.collisions!.length} other change(s){' '}
+          Overlaps {detail.collisions!.length} other change{detail.collisions!.length > 1 ? 's' : ''}:{' '}
           {detail.collisions!.map((c) => `#${c.change_id} “${c.title}”`).join(', ')} — systems involved are pulsing on the map.
         </div>
       )}

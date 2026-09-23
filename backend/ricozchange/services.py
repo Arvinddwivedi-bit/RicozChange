@@ -6,7 +6,7 @@ import io
 import random
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .audit import log_action
@@ -198,6 +198,53 @@ def cfr_summary(db: Session) -> dict:
     return {"total": total, "success": success, "failed": failed, "partial": partial, "failure_rate_pct": rate}
 
 
+def change_trends(db: Session) -> dict:
+    """Time-series for dashboard charts: weekly volume by class and per-window CFR.
+
+    Weeks are ISO weeks covering the last 8 weeks including the current one.
+    Volume buckets use window_start; CFR buckets use window_end (outcomes are
+    known after the window closes).
+    """
+    now = datetime.now()
+    start = now - timedelta(weeks=7)
+    start = start - timedelta(days=start.weekday())  # Monday of that week
+
+    changes = db.execute(
+        select(Change).where(Change.window_start >= start)
+    ).scalars().unique().all()
+
+    def bucket(dt: datetime) -> int:
+        """Index 0..7 of the ISO week containing dt."""
+        monday = dt - timedelta(days=dt.weekday())
+        return min(7, max(0, (monday - start).days // 7))
+
+    volume = [ {"standard": 0, "normal": 0, "major": 0, "emergency": 0} for _ in range(8) ]
+    cfr = [ {"success": 0, "failed": 0, "partial": 0} for _ in range(8) ]
+    for ch in changes:
+        if ch.window_start:
+            volume[bucket(ch.window_start)][ch.risk_type] = volume[bucket(ch.window_start)].get(ch.risk_type, 0) + 1
+        if ch.post_change_result and ch.window_end:
+            cfr[bucket(ch.window_end)][ch.post_change_result] = cfr[bucket(ch.window_end)].get(ch.post_change_result, 0) + 1
+
+    week_labels = [f"{(start + timedelta(weeks=i)).strftime('%d %b')}" for i in range(8)]
+
+    type_mix = dict(db.execute(select(Change.risk_type, func.count()).group_by(Change.risk_type)).all())
+
+    system_counts = {}
+    for ch in changes:
+        for s in ch.systems:
+            system_counts[s.name] = system_counts.get(s.name, 0) + 1
+    system_heat = sorted(system_counts.items(), key=lambda kv: -kv[1])[:6]
+
+    return {
+        "weeks": week_labels,
+        "volume": volume,
+        "cfr": cfr,
+        "type_mix": type_mix,
+        "system_heat": system_heat,
+    }
+
+
 # ---------- CSV import ----------
 
 REQUIRED_COLS = {"title", "risk_type", "systems", "window_start", "window_end"}
@@ -340,20 +387,23 @@ def seed_demo_data(db: Session) -> None:
     # ---- Historical changes (feed the risk engine + CFR) ----
     now = datetime.now()
     history_spec = [
-        ("Rotate payments-db connection pool", "normal", ["payments-db"], -21, "failed"),
-        ("Upgrade orders-api to v2.4", "normal", ["orders-api"], -18, "success"),
-        ("Patch auth-service CVE-2026-1183", "emergency", ["auth-service"], -12, "success"),
-        ("Reindex search index v3", "major", ["search-index", "search-api"], -9, "success"),
-        ("Scale checkout-web to 6 replicas", "standard", ["checkout-web"], -5, "success"),
-        ("Nightly users-db vacuum tuning", "standard", ["users-db"], -3, "success"),
+        ("Rotate payments-db connection pool", "normal", ["payments-db"], -49, -48, "failed"),
+        ("Upgrade orders-api to v2.4", "normal", ["orders-api"], -43, -43, "success"),
+        ("Rotate TLS certificate — checkout-web", "standard", ["checkout-web"], -36, -35, "success"),
+        ("Patch auth-service CVE-2026-1183", "emergency", ["auth-service"], -28, -27, "partial"),
+        ("Reindex search index v3", "major", ["search-index", "search-api"], -20, -19, "success"),
+        ("Scale checkout-web to 6 replicas", "standard", ["checkout-web"], -14, -14, "success"),
+        ("Migrate users-db to encrypted volumes", "major", ["users-db"], -9, -8, "success"),
+        ("Nightly users-db vacuum tuning", "standard", ["users-db"], -4, -3, "success"),
+        ("Restart orders-api canary fleet", "standard", ["orders-api"], -2, -1, "success"),
     ]
-    for title, rtype, syskeys, days_ago, result in history_spec:
-        start = now + timedelta(days=days_ago, hours=1)
+    for title, rtype, syskeys, start_days, end_days, result in history_spec:
+        start = now + timedelta(days=start_days, hours=1)
         ch = Change(
             title=title, description="Seeded historical change", risk_type=rtype,
-            status="completed" if result == "success" else "failed",
+            status="completed" if result == "success" else ("failed" if result == "failed" else "completed"),
             owner_id=random.choice(list(users.values())).id,
-            window_start=start, window_end=start + timedelta(hours=2),
+            window_start=start, window_end=now + timedelta(days=end_days, hours=3),
             rollback_plan="Snapshot restore + previous image.",
             post_change_result=result,
             post_change_notes="Seeded outcome",
@@ -362,6 +412,8 @@ def seed_demo_data(db: Session) -> None:
         db.add(ch)
         db.flush()
         score_and_persist(db, ch)
+        log_action(db, "change", ch.id, "created", actor="system seed", detail="imported history")
+        log_action(db, "change", ch.id, f"status:{ch.status}", actor="system seed", detail=f"outcome: {result}")
         db.add(PostChangeResult(change_id=ch.id, result=result, notes="Seeded outcome"))
 
     # ---- One live pending risky change with approvals + Slack outbox ----

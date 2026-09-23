@@ -50,14 +50,14 @@ export default function ChangeDetail() {
   const pendingMine = (change.approvals ?? []).filter((a) => a.decision === 'pending')
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <div className="p-8 space-y-6 min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-3 min-w-0">
+        <div className="min-w-0">
           <div className="flex items-center gap-3">
             <Link to="/changes" className="text-sm text-slate-400 hover:text-slate-600">← Changes</Link>
           </div>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight flex items-center gap-3">
-            #{change.id} {change.title}
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight flex items-center gap-3 min-w-0">
+            <span className="break-words min-w-0">#{change.id} {change.title}</span>
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ScoreBadge score={change.risk_score} />
@@ -100,12 +100,12 @@ export default function ChangeDetail() {
 
       {change.freeze_overlaps && change.freeze_overlaps.length > 0 && (
         <div className="rounded-xl bg-rose-50 border border-rose-300 p-4 text-sm text-rose-800">
-          🧊 Freeze period overlap: {change.freeze_overlaps.map((f) => f.name).join(', ')}
+          Freeze period overlap: {change.freeze_overlaps.map((f) => f.name).join(', ')}
         </div>
       )}
 
-      <div className="grid xl:grid-cols-2 gap-6 items-start">
-        <div className="space-y-6">
+      <div className="grid xl:grid-cols-2 gap-6 items-start min-w-0">
+        <div className="space-y-6 min-w-0">
           <section className="card p-5">
             <h2 className="font-bold">Why this score</h2>
             <p className="text-xs text-slate-500 mb-2">Every point, explained. No black box.</p>
@@ -153,7 +153,7 @@ export default function ChangeDetail() {
           </section>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           {change.status === 'submitted' && (
             <section className="card p-5 border-sky-200">
               <h2 className="font-bold">Approvals</h2>
@@ -168,7 +168,7 @@ export default function ChangeDetail() {
                 ))}
               </div>
               <div className="mt-3 text-xs text-slate-500">
-                Approvers also got this in the <Link to="/slack" className="underline">Slack demo</Link>. Any single approval (with no rejection) resolves it.
+                Approvers also got this in the <Link to="/approvals" className="underline">approval inbox</Link>. Any single approval (with no rejection) resolves it.
               </div>
             </section>
           )}

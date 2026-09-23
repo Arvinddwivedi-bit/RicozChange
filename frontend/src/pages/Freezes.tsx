@@ -37,7 +37,7 @@ export default function Freezes() {
 
   return (
     <div className="p-8 grid xl:grid-cols-3 gap-6 items-start">
-      <div className="xl:col-span-2 space-y-5">
+      <div className="xl:col-span-2 space-y-5 min-w-0">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Freeze windows</h1>
           <p className="text-sm text-slate-500">
@@ -48,8 +48,8 @@ export default function Freezes() {
         <div className="card divide-y divide-slate-100">
           {freezes.length === 0 && <div className="p-6 text-sm text-slate-500">No freezes defined.</div>}
           {freezes.map((f) => (
-            <div key={f.id} className="p-4">
-              <div className="font-semibold">🧊 {f.name}</div>
+            <div key={f.id} className="p-4 min-w-0">
+              <div className="font-semibold truncate">{f.name}</div>
               <div className="text-sm text-slate-600">{fmtDate(f.starts_at)} → {fmtDate(f.ends_at)}</div>
               {f.reason && <div className="text-xs text-slate-500 mt-1">{f.reason}</div>}
             </div>

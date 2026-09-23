@@ -827,6 +827,7 @@ def dashboard(db: Session = Depends(dbmod.get_db)) -> dict:
         "cfr": services.cfr_summary(db),
         "upcoming": [serialize_change(c) for c in upcoming],
         "top_risk": [serialize_change(c) for c in top_risk],
+        "trends": services.change_trends(db),
     }
 
 

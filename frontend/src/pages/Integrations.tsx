@@ -35,9 +35,9 @@ export default function Integrations() {
         <p className="text-sm text-slate-500">Live connections that carry RicozChange into your team's daily tools.</p>
       </div>
 
-      <div className="card p-5 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-navy text-white flex items-center justify-center font-bold text-lg">#</div>
+      <div className="card p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-navy text-white flex items-center justify-center font-bold text-lg">#</div>
           <div>
             <div className="font-bold">Slack</div>
             <p className="text-sm text-slate-500 mt-0.5 max-w-md">
@@ -47,7 +47,7 @@ export default function Integrations() {
             </p>
           </div>
         </div>
-        <div className="text-right shrink-0 space-y-2">
+        <div className="text-left sm:text-right shrink-0 space-y-2">
           <Toggle on={Boolean(slack?.connected)} />
           {slack?.connected === false && slack?.install_url && (
             <div>
@@ -59,9 +59,9 @@ export default function Integrations() {
         </div>
       </div>
 
-      <div className="card p-5 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-lg">R</div>
+      <div className="card p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-lg">R</div>
           <div>
             <div className="font-bold">Clerk sign-in</div>
             <p className="text-sm text-slate-500 mt-0.5 max-w-md">
@@ -71,7 +71,7 @@ export default function Integrations() {
             </p>
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-left sm:text-right shrink-0">
           <Toggle on={authMode === 'clerk'} />
           <div className="mt-1 text-[11px] text-slate-400">
             mode: {authMode ?? '…'}
@@ -80,8 +80,8 @@ export default function Integrations() {
       </div>
 
       <div className="card p-5 opacity-70">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-lg">✉</div>
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-lg">@</div>
           <div>
             <div className="font-bold text-slate-500">Email-to-change</div>
             <p className="text-sm text-slate-500 mt-0.5">

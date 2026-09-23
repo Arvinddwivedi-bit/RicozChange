@@ -2,6 +2,7 @@ import { Loading } from '../App'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtDate } from '../api'
+import { ActivitySpark } from '../components/Charts'
 
 interface AuditRow {
   id: number
@@ -65,6 +66,16 @@ export default function AuditLog() {
           Append-only trail of every action — transitions, decisions, denials, deliveries and provisions. Written once, never edited.
         </p>
       </div>
+
+      <section className="card p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-bold">Activity</h2>
+          <span className="text-xs text-slate-400">{rows.length} entries loaded</span>
+        </div>
+        <div className="mt-4">
+          <ActivitySpark rows={rows} days={14} />
+        </div>
+      </section>
 
       <div className="flex flex-wrap items-center gap-3">
         <input

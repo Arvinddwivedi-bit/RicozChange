@@ -53,7 +53,7 @@ export default function Simulator() {
 
   return (
     <div className="p-8 grid xl:grid-cols-2 gap-6 items-start">
-      <div className="space-y-5">
+      <div className="space-y-5 min-w-0">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Change Simulator</h1>
           <p className="text-sm text-slate-500">
@@ -132,7 +132,7 @@ export default function Simulator() {
         </div>
       </div>
 
-      <div className="space-y-5 xl:sticky xl:top-6">
+      <div className="space-y-5 min-w-0 xl:sticky xl:top-6">
         <div className="card p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-bold">Score right now</h2>
@@ -148,7 +148,7 @@ export default function Simulator() {
               )}
               {sim.freeze_overlaps.length > 0 && (
                 <div className="mt-2 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
-                  🧊 Freeze: {sim.freeze_overlaps.map((f) => f.name).join(', ')}
+                  Freeze overlap: {sim.freeze_overlaps.map((f) => f.name).join(', ')}
                 </div>
               )}
             </>

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtDate, type ChangeT } from '../api'
 import { ScoreBadge, StatusBadge } from '../components/Components'
+import { MiniDonut } from '../components/Charts'
 
 interface CabItem {
   id: number
@@ -62,13 +63,31 @@ export default function CABPage() {
 
   const open = meetings.find((m) => m.id === openId)
 
+  // Decision outcomes across all agenda items (chart data)
+  const decisionCounts: Record<string, number> = {}
+  for (const m of meetings) for (const it of m.items) decisionCounts[it.decision] = (decisionCounts[it.decision] ?? 0) + 1
+
   return (
     <div className="p-8 grid xl:grid-cols-3 gap-6 items-start">
-      <div className="xl:col-span-2 space-y-5">
+      <div className="xl:col-span-2 space-y-5 min-w-0">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">CAB meetings</h1>
           <p className="text-sm text-slate-500">The Tuesday ritual, minus the spreadsheet. Approve straight from the agenda.</p>
         </div>
+
+        <section className="card p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-bold">Decision outcomes</h2>
+            <span className="text-xs text-slate-400">all agenda items</span>
+          </div>
+          <div className="mt-4">
+            <MiniDonut
+              data={decisionCounts}
+              colors={{ approved: '#10b981', rejected: '#d4222c', deferred: '#f59e0b', pending: '#94a3b8' }}
+              centerLabel="items"
+            />
+          </div>
+        </section>
 
         {err && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{err}</div>}
 
@@ -123,7 +142,7 @@ export default function CABPage() {
                         <div className="mt-3 flex gap-2">
                           <button className="btn btn-success" onClick={() => decide(it.id, 'approved')}>Approve</button>
                           <button className="btn btn-danger" onClick={() => decide(it.id, 'rejected')}>Reject</button>
-                          <button className="btn btn-ghost" onClick={() => decide(it.id, 'deferred')}>⏸ Defer</button>
+                          <button className="btn btn-ghost" onClick={() => decide(it.id, 'deferred')}>Defer</button>
                         </div>
                       )}
                     </>
@@ -137,7 +156,7 @@ export default function CABPage() {
         )}
       </div>
 
-      <div className="card p-5 space-y-3">
+      <div className="card p-5 space-y-3 min-w-0">
         <h2 className="font-bold">Schedule a meeting</h2>
         <input type="datetime-local" className="input" value={newWhen} onChange={(e) => setNewWhen(e.target.value)} />
         <input className="input" placeholder="Notes (optional)" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} />
