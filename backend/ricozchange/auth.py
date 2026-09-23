@@ -21,6 +21,7 @@ from .models import User
 
 _bearer = HTTPBearer(auto_error=False)
 _jwks_cache: dict | None = None
+_clerk_email_cache: dict[str, str] = {}
 
 
 def _fetch_jwks() -> dict:
@@ -65,6 +66,12 @@ def get_actor(
             raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
         email = (claims.get("email") or "").lower()
         if not email:
+            # Clerk session tokens carry `sub` (the Clerk user id) and often no
+            # email claim. Fall back to Clerk's Backend API to resolve it.
+            subject = claims.get("sub") or ""
+            if subject and config.CLERK_SECRET_KEY:
+                email = _email_from_clerk(subject)
+        if not email:
             raise HTTPException(status_code=401, detail="Token has no email claim")
         return _user_from_email(db, email)
 
@@ -72,6 +79,38 @@ def get_actor(
     if user is None:
         raise HTTPException(status_code=500, detail="Demo user missing; re-seed the database")
     return user
+
+
+def _email_from_clerk(subject: str) -> str:
+    """Resolve a Clerk user id to their primary email via the Backend API.
+
+    Cached for the process lifetime — Clerk user emails rarely change, and
+    approvals stay fast even on cold starts.
+    """
+    global _clerk_email_cache
+    if subject in _clerk_email_cache:
+        return _clerk_email_cache[subject]
+    resp = requests.get(
+        f"https://api.clerk.com/v1/users/{subject}",
+        headers={"Authorization": f"Bearer {config.CLERK_SECRET_KEY}"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail=f"Clerk user lookup failed ({resp.status_code})")
+    data = resp.json()
+    primary_id = data.get("primary_email_address_id")
+    email = ""
+    for entry in data.get("email_addresses", []):
+        if primary_id and entry.get("id") == primary_id:
+            email = entry.get("email_address", "")
+            break
+        if not email:
+            email = entry.get("email_address", "")
+    email = email.lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Clerk user has no email address")
+    _clerk_email_cache[subject] = email
+    return email
 
 
 def _select_jwk(token: str) -> dict:

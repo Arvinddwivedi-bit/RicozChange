@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
-import { api, type Bootstrap } from './api'
+import { api, CLERK_ENABLED, type Bootstrap } from './api'
 import Dashboard from './pages/Dashboard'
 import Changes from './pages/Changes'
 import ChangeDetail from './pages/ChangeDetail'
@@ -133,7 +133,7 @@ export default function App() {
             </div>
           </div>
           <div className="px-5 pb-4 text-[10px] text-slate-400">
-            MVP · demo mode (single-user auth)
+            {CLERK_ENABLED ? 'MVP · Clerk authentication' : 'MVP · demo mode (single-user auth)'}
           </div>
         </aside>
         <main className="flex-1 min-w-0">

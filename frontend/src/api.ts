@@ -138,9 +138,22 @@ export interface Bootstrap {
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 
+/** True when the build carries a Clerk publishable key (see main.tsx). */
+export const CLERK_ENABLED = Boolean(
+  (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined)?.startsWith('pk_'),
+)
+
 export async function api<T>(path: string, opts?: RequestInit): Promise<T> {
+  // In Clerk mode, main.tsx's AuthBridge publishes a token getter on window;
+  // demo mode leaves it null and requests go out unauthenticated as before.
+  const getToken = window.__RC_AUTH__?.getToken
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (getToken) {
+    const token = await getToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
   const res = await fetch(API_BASE + path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...opts,
   })
   if (!res.ok) {

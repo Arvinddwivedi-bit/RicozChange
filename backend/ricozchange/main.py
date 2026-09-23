@@ -15,9 +15,12 @@ from sqlalchemy.orm import Session
 
 from . import config, db as dbmod
 from . import services
+from . import auth as auth_mod
+from . import slack_app
+from fastapi.security import HTTPAuthorizationCredentials
+from .auth import _bearer, get_actor, require_actor, require_role
 from .ai_drafting import draft_change_docs
 from .audit import log_action
-from .auth import get_actor, require_actor, require_role
 from .models import (
     Approval,
     AuditLog,
@@ -32,7 +35,6 @@ from .models import (
     SystemNode,
     User,
 )
-from . import slack_app
 from .notifications import serialize_notification
 from .risk_engine import (
     evaluate_change,
@@ -219,6 +221,37 @@ def root() -> dict:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "time": datetime.now().isoformat()}
+
+
+@app.get("/api/auth/me")
+def auth_me(
+    db: Session = Depends(dbmod.get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> dict:
+    """Identity + auth-mode discovery for the SPA.
+
+    Deliberately bypasses get_actor's 401 in gated mode: with a valid token the
+    actor is resolved exactly as every other route would (same JWKS path), and
+    without one the frontend is told to show sign-in. Demo mode answers the
+    seeded actor so the UI can run token-free.
+    """
+    if credentials is not None:
+        try:
+            actor = auth_mod.get_actor(credentials=credentials, db=db)
+        except HTTPException as exc:
+            if exc.status_code == 401:
+                return {"auth_mode": "clerk", "actor": None}
+            raise
+    else:
+        if config.GATE_BY_DEMO_USER:
+            return {"auth_mode": "clerk", "actor": None}
+        actor = auth_mod.get_actor(credentials=None, db=db)
+    users = db.execute(select(User).order_by(User.id)).scalars().all()
+    return {
+        "auth_mode": "clerk" if config.GATE_BY_DEMO_USER else "demo",
+        "actor": {"id": actor.id, "name": actor.name, "email": actor.email, "role": actor.role},
+        "users": [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in users],
+    }
 
 
 @app.get("/api/bootstrap")
