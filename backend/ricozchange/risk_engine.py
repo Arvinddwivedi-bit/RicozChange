@@ -261,6 +261,10 @@ def score_and_persist(db: Session, change: Change) -> tuple[int, list[dict]]:
     change.risk_score = score
     change.computed_at = datetime.now()
     db.flush()
+    # The factors collection may already be loaded (it is read for deletion
+    # above); expire it so the next access re-queries and message builders
+    # (approval DMs, Slack payloads) see the fresh line items.
+    db.expire(change, ["factors"])
     return score, factors
 
 

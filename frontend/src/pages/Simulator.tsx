@@ -143,7 +143,7 @@ export default function Simulator() {
               <div className="mt-3"><RiskWhy factors={sim.factors} compact /></div>
               {sim.collisions.length > 0 && (
                 <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-                  ⚠ Collisions: {sim.collisions.map((c) => `#${c.change_id} “${c.title}”`).join(', ')}
+                  Collisions: {sim.collisions.map((c) => `#${c.change_id} “${c.title}”`).join(', ')}
                 </div>
               )}
               {sim.freeze_overlaps.length > 0 && (

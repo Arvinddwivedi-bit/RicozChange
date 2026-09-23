@@ -27,7 +27,7 @@ def build_approval_message(change: Change, approval: Approval) -> dict:
     return {
         "text": f"Approval needed: change #{change.id} “{change.title}”",
         "blocks": [
-            {"type": "section", "text": f"🔔 *Approval needed — change #{change.id}:* “{change.title}”"},
+            {"type": "section", "text": f"*Approval needed — change #{change.id}:* “{change.title}”"},
             {
                 "type": "context",
                 "fields": {
@@ -44,8 +44,8 @@ def build_approval_message(change: Change, approval: Approval) -> dict:
             {
                 "type": "actions",
                 "actions": [
-                    {"action": "approve", "label": "✅ Approve", "style": "primary"},
-                    {"action": "reject", "label": "❌ Reject", "style": "danger"},
+                    {"action": "approve", "label": "Approve", "style": "primary"},
+                    {"action": "reject", "label": "Reject", "style": "danger"},
                 ],
             },
             {"type": "footer", "text": "RicozChange · approve here or in the web app"},
@@ -99,6 +99,9 @@ def serialize_notification(note: Notification) -> dict:
         "message": note.message,
         "acted": note.acted,
         "acted_action": note.acted_action,
+        "sent_at": note.sent_at.isoformat() if note.sent_at else None,
+        "slack_ts": note.slack_ts,
+        "delivery_error": note.delivery_error,
         "created_at": note.created_at.isoformat(),
     }
 

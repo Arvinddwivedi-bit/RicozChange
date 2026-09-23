@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, fmtDate, type ChangeT, type WindowSuggestion } from '../api'
@@ -31,7 +32,7 @@ export default function ChangeDetail() {
   const highlighted = useMemo(() => (change ? change.systems.map((s) => s.id) : []), [change])
 
   if (err) return <div className="p-8 text-red-600">{err}</div>
-  if (!change) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!change) return <Loading />
 
   async function act(fn: () => Promise<unknown>, okMsg: string) {
     setErr(null)
@@ -85,7 +86,7 @@ export default function ChangeDetail() {
 
       {change.collisions && change.collisions.length > 0 && (
         <div className="rounded-xl bg-amber-50 border border-amber-300 p-4">
-          <div className="font-bold text-amber-900 text-sm">⚠ Collision detector — {change.collisions.length} overlapping change(s)</div>
+          <div className="font-bold text-amber-900 text-sm">Collision detector — {change.collisions.length} overlapping change(s)</div>
           <ul className="mt-1 text-sm text-amber-800 list-disc list-inside">
             {change.collisions.map((c) => (
               <li key={c.change_id}>
@@ -176,8 +177,8 @@ export default function ChangeDetail() {
             <section className="card p-5">
               <h2 className="font-bold">Your decision</h2>
               <div className="mt-2 flex gap-2">
-                <button className="btn btn-success" onClick={() => act(() => api(`/api/changes/${change.id}/approvals`, { method: 'POST', body: JSON.stringify({ decision: 'approved' }) }), 'Approved')}>✅ Approve</button>
-                <button className="btn btn-danger" onClick={() => act(() => api(`/api/changes/${change.id}/approvals`, { method: 'POST', body: JSON.stringify({ decision: 'rejected' }) }), 'Rejected')}>❌ Reject</button>
+                <button className="btn btn-success" onClick={() => act(() => api(`/api/changes/${change.id}/approvals`, { method: 'POST', body: JSON.stringify({ decision: 'approved' }) }), 'Approved')}>Approve</button>
+                <button className="btn btn-danger" onClick={() => act(() => api(`/api/changes/${change.id}/approvals`, { method: 'POST', body: JSON.stringify({ decision: 'rejected' }) }), 'Rejected')}>Reject</button>
               </div>
             </section>
           )}
@@ -247,7 +248,7 @@ function AiDrafts({ changeId, change, onDone }: { changeId: number; change: Chan
   return (
     <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-brand-800">✨ AI drafting</span>
+        <span className="text-xs font-bold text-brand-800">AI drafting</span>
         {engine && <span className="text-[10px] uppercase text-brand-500">engine: {engine}</span>}
       </div>
       <p className="text-xs text-brand-700/80 mt-1">Drafts only — nothing is applied until a human reviews and approves.</p>

@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useCallback, useEffect, useState } from 'react'
 import { api, fmtDate, type FreezeT } from '../api'
 
@@ -32,7 +33,7 @@ export default function Freezes() {
     }
   }
 
-  if (!freezes) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!freezes) return <Loading />
 
   return (
     <div className="p-8 grid xl:grid-cols-3 gap-6 items-start">

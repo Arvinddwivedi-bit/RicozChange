@@ -217,7 +217,7 @@ export default function ChangeForm() {
               <RiskWhy factors={sim.factors} compact />
               {sim.collisions.length > 0 && (
                 <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-                  ⚠ {sim.collisions.length} overlapping change(s):{' '}
+                  {sim.collisions.length} overlapping change(s):{' '}
                   {sim.collisions.map((c) => `#${c.change_id} “${c.title}”`).join(', ')}
                 </div>
               )}

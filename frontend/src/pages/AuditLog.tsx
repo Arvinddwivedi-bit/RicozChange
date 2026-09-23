@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtDate } from '../api'
@@ -43,7 +44,7 @@ export default function AuditLog() {
     api<AuditRow[]>(`/api/audit?limit=${limit}`).then(setRows)
   }, [limit])
 
-  if (!rows) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!rows) return <Loading />
 
   const filtered = rows.filter((r) => {
     if (!query) return true

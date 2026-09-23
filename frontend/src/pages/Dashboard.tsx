@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type ChangeT } from '../api'
@@ -19,7 +20,7 @@ export default function Dashboard() {
     api<Dash>('/api/dashboard').then(setData)
   }, [])
 
-  if (!data) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!data) return <Loading />
 
   const cfr = data.cfr.failure_rate_pct
   const cfrTone = cfr >= 20 ? 'text-red-600' : cfr >= 10 ? 'text-amber-600' : 'text-emerald-600'

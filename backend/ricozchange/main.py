@@ -891,7 +891,7 @@ def slack_oauth_callback(code: str = Query(...), state: str = Query(default=""),
     db.commit()
     return HTMLResponse(
         "<html><body style='font-family:sans-serif;text-align:center;padding-top:3rem'>"
-        "<h2>✅ RicozChange is connected to Slack</h2>"
+        "<h2>RicozChange is connected to Slack</h2>"
         f"<p>Workspace: <b>{team.get('name', '?')}</b> — you can close this tab.</p>"
         "</body></html>"
     )

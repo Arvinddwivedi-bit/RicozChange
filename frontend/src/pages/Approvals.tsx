@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type NotificationT } from '../api'
@@ -29,7 +30,7 @@ export default function Approvals() {
     }
   }
 
-  if (!notes) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!notes) return <Loading />
 
   const pending = notes.filter((n) => !n.acted)
   const decided = notes.filter((n) => n.acted)
@@ -72,13 +73,13 @@ export default function Approvals() {
       <div className="space-y-4">
         {visible.map((n) => (
           <div key={n.id} className="card overflow-hidden">
-            <div className="bg-navy text-white px-4 py-2 text-xs flex items-center gap-2">
+            <div className="bg-navy/95 text-white px-4 py-2.5 text-xs flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 font-semibold">
-                <span className="w-3.5 h-3.5 rounded-sm bg-brand-600 inline-flex items-center justify-center text-[8px] font-bold">#</span>
+                <span className="w-4 h-4 rounded bg-brand-600 inline-flex items-center justify-center text-[9px] font-bold">#</span>
                 {n.channel}
               </span>
-              <span className="text-white/50">· Slack message payload</span>
-              {n.sent_at && <span className="text-white/40">· delivered</span>}
+              <span className="text-white/40">approval request</span>
+              {n.sent_at && <span className="text-white/30">delivered via Slack</span>}
               {n.acted && (
                 <span
                   className={`ml-auto rounded px-2 py-0.5 font-semibold ${
@@ -90,10 +91,12 @@ export default function Approvals() {
               )}
             </div>
             <div className="p-4 space-y-3">
-              <div className="font-semibold text-sm">{n.message.text.replace(/\*/g, '')}</div>
+              <div className="font-semibold text-sm">Approval needed: change #{n.change_id} — see details below</div>
               {n.message.blocks.map((b, i) => {
                 if (b.type === 'section' && b.text) {
-                  return <div key={i} className="text-sm text-slate-700">{b.text.replace(/\*/g, '')}</div>
+                  const cleaned = b.text.replace(/\*/g, '').replace(/^🔔\s*/, '')
+                  if (cleaned.includes(`change #${n.change_id}`) && cleaned.startsWith('Approval needed')) return null
+                  return <div key={i} className="text-sm text-slate-700">{cleaned}</div>
                 }
                 if (b.type === 'context' && b.fields) {
                   return (

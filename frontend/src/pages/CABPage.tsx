@@ -1,3 +1,4 @@
+import { Loading } from '../App'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtDate, type ChangeT } from '../api'
@@ -57,7 +58,7 @@ export default function CABPage() {
     }
   }
 
-  if (!meetings) return <div className="p-8 text-slate-500">Loading…</div>
+  if (!meetings) return <Loading />
 
   const open = meetings.find((m) => m.id === openId)
 
@@ -120,8 +121,8 @@ export default function CABPage() {
                       )}
                       {it.decision === 'pending' && it.change.status === 'submitted' && (
                         <div className="mt-3 flex gap-2">
-                          <button className="btn btn-success" onClick={() => decide(it.id, 'approved')}>✅ Approve</button>
-                          <button className="btn btn-danger" onClick={() => decide(it.id, 'rejected')}>❌ Reject</button>
+                          <button className="btn btn-success" onClick={() => decide(it.id, 'approved')}>Approve</button>
+                          <button className="btn btn-danger" onClick={() => decide(it.id, 'rejected')}>Reject</button>
                           <button className="btn btn-ghost" onClick={() => decide(it.id, 'deferred')}>⏸ Defer</button>
                         </div>
                       )}

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Ricoz brand system — red primary, deep navy ink, white surfaces.
+/* Ricoz brand system — red primary, deep navy ink, frosted-glass surfaces.
    Tokens feed Tailwind utilities (bg-brand-600, text-navy, …). */
 @theme {
   --color-brand-50: #fdf2f3;
@@ -19,16 +19,46 @@
 }
 
 body {
-  background-color: #f6f7f9;
+  /* Ambient backdrop the glass panels sit on: soft brand-red and navy blooms
+     on a quiet light base. Subtle by design — glass needs depth to read. */
+  background-color: #eef1f6;
+  background-image:
+    radial-gradient(42rem 30rem at 88% -8%, rgba(212, 34, 44, 0.09), transparent 60%),
+    radial-gradient(50rem 36rem at -12% 108%, rgba(15, 29, 51, 0.10), transparent 60%),
+    radial-gradient(30rem 24rem at 45% 115%, rgba(212, 34, 44, 0.05), transparent 65%);
+  background-attachment: fixed;
   color: #0f1d33;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 h1, h2, h3 {
   color: var(--color-navy);
+  letter-spacing: -0.01em;
+}
+
+/* ---- Glass primitives ---- */
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 10px 30px -12px rgba(15, 29, 51, 0.18);
 }
 
 .card {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 10px 30px -12px rgba(15, 29, 51, 0.18);
+}
+
+.card-solid {
   background: #ffffff;
   border: 1px solid #e6e9ef;
   border-radius: 0.75rem;
@@ -37,17 +67,18 @@ h1, h2, h3 {
 
 .input {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid rgba(203, 213, 225, 0.9);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
   color: #0f1d33;
 }
 
 .input:focus {
   outline: 2px solid var(--color-brand-600);
   outline-offset: 1px;
+  background: #fff;
 }
 
 .btn {
@@ -58,50 +89,114 @@ h1, h2, h3 {
   padding: 0.5rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
+
+.btn:active:not(:disabled) { transform: translateY(0.5px); }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-primary { background: var(--color-brand-600); color: #fff; }
+.btn-primary {
+  background: var(--color-brand-600);
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(212, 34, 44, 0.45);
+}
 .btn-primary:hover:not(:disabled) { background: var(--color-brand-700); }
-.btn-ghost { background: #fff; border-color: #cbd5e1; color: #334155; }
-.btn-ghost:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(203, 213, 225, 0.9);
+  color: #334155;
+}
+.btn-ghost:hover:not(:disabled) { background: #fff; border-color: #94a3b8; }
+
 .btn-danger { background: #b91c1c; color: #fff; }
 .btn-danger:hover:not(:disabled) { background: #991b1b; }
 .btn-success { background: #15803d; color: #fff; }
 .btn-success:hover:not(:disabled) { background: #166534; }
 
-/* Sidebar nav */
-.nav-group-label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #94a3b8;
-  padding: 0.875rem 1.25rem 0.25rem;
-}
-.nav-link {
-  display: block;
-  padding: 0.5rem 1.25rem;
-  font-size: 0.875rem;
-  color: #475569;
-  border-right: 2px solid transparent;
-}
-.nav-link:hover { background: #f8fafc; color: #0f1d33; }
-.nav-link.active {
-  background: var(--color-brand-50);
-  color: var(--color-brand-700);
-  font-weight: 600;
-  border-right-color: var(--color-brand-600);
+/* ---- Sidebar ---- */
+.sidebar {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-right: 1px solid rgba(255, 255, 255, 0.7);
 }
 
-/* Brand logo tile */
+.nav-group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% - 1.25rem);
+  margin: 0.25rem 0.625rem 0.125rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a94a6;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.nav-group-btn:hover { color: var(--color-navy); background: rgba(15, 29, 51, 0.04); }
+
+.nav-group-chevron {
+  transition: transform 180ms ease;
+  opacity: 0.7;
+}
+.nav-group-chevron.open { transform: rotate(180deg); }
+
+.nav-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+}
+.nav-collapse.open { grid-template-rows: 1fr; }
+.nav-collapse > div { overflow: hidden; }
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.125rem 0.625rem;
+  padding: 0.45rem 0.625rem;
+  font-size: 0.875rem;
+  color: #475569;
+  border-radius: 0.5rem;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.nav-link:hover { background: rgba(15, 29, 51, 0.05); color: #0f1d33; }
+.nav-link.active {
+  background: rgba(212, 34, 44, 0.09);
+  color: var(--color-brand-700);
+  font-weight: 600;
+}
+.nav-link.active::before {
+  content: "";
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: var(--color-brand-600);
+  flex-shrink: 0;
+}
+
+.nav-count {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: #a3aebf;
+  font-weight: 600;
+}
+
+/* ---- Brand logo tile ---- */
 .logo-tile {
   display: inline-flex;
   align-items: center;
@@ -109,9 +204,30 @@ h1, h2, h3 {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.625rem;
-  background: var(--color-brand-600);
+  background: linear-gradient(145deg, var(--color-brand-500), var(--color-brand-700));
   color: #fff;
   font-weight: 800;
   font-size: 1.05rem;
-  box-shadow: 0 2px 6px rgb(212 34 44 / 0.35);
+  box-shadow:
+    0 2px 6px rgba(212, 34, 44, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.35) inset;
+}
+
+/* ---- Quiet spinner (replaces emoji hourglass) ---- */
+.spinner {
+  display: inline-block;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid rgba(15, 29, 51, 0.15);
+  border-top-color: var(--color-brand-600);
+  border-radius: 9999px;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-pane {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

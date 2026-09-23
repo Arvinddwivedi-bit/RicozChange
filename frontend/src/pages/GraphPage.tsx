@@ -67,7 +67,7 @@ export default function GraphPage() {
 
       {detail && (detail.collisions?.length || 0) > 0 && (
         <div className="card p-4 text-sm text-amber-800 bg-amber-50 border-amber-200">
-          ⚠ Overlaps {detail.collisions!.length} other change(s){' '}
+          Overlaps {detail.collisions!.length} other change(s){' '}
           {detail.collisions!.map((c) => `#${c.change_id} “${c.title}”`).join(', ')} — systems involved are pulsing on the map.
         </div>
       )}

@@ -65,11 +65,66 @@ const NAV: { group: string; items: { to: string; label: string }[] }[] = [
   },
 ]
 
+const GROUP_KEY = 'rc.nav.open'
+
+function openGroupFor(path: string): string {
+  const hit = NAV.find((g) => g.items.some((i) => i.to === path))
+  return hit?.group ?? 'Operate'
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`nav-group-chevron ${open ? 'open' : ''}`}
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      aria-hidden
+    >
+      <path d="M2 3.5 5 6.5 8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function Loading() {
+  return (
+    <div className="loading-pane">
+      <span className="spinner" aria-label="Loading" />
+    </div>
+  )
+}
+
 export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null)
   const [tick, setTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [waking, setWaking] = useState(false)
+  const [openGroups, setOpenGroups] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(GROUP_KEY)
+      if (saved) return JSON.parse(saved) as string[]
+    } catch {
+      /* ignore */
+    }
+    return ['Operate']
+  })
+
+  // Keep the group containing the current path reachable: if the user deep-links
+  // to /audit with Trust collapsed, expand Trust once on mount.
+  useEffect(() => {
+    const current = openGroupFor(window.location.pathname)
+    setOpenGroups((prev) => (prev.includes(current) ? prev : [...prev, current]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GROUP_KEY, JSON.stringify(openGroups))
+    } catch {
+      /* ignore */
+    }
+  }, [openGroups])
 
   useEffect(() => {
     setError(null)
@@ -87,12 +142,12 @@ export default function App() {
           return
         } catch {
           attempts++
-          if (attempts === 1) setWaking(true)   // show "waking up" after first fail
+          if (attempts === 1) setWaking(true)
           if (attempts >= maxAttempts) {
-            if (!cancelled) setError('Could not reach backend after 90 s.')
+            if (!cancelled) setError('Could not reach the server. Check your connection and retry.')
             return
           }
-          await new Promise((r) => setTimeout(r, 8000))  // wait 8 s between retries
+          await new Promise((r) => setTimeout(r, 8000))
         }
       }
     }
@@ -101,12 +156,16 @@ export default function App() {
     return () => { cancelled = true }
   }, [tick])
 
+  function toggleGroup(group: string) {
+    setOpenGroups((prev) => (prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]))
+  }
+
   if (waking && !boot && !error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="card p-6 max-w-md text-center">
-          <div className="text-2xl mb-3">⏳</div>
-          <h1 className="font-bold text-lg mb-2">Waking up the server…</h1>
+          <div className="flex justify-center mb-3"><span className="spinner" /></div>
+          <h1 className="font-bold text-lg mb-2">Waking up the server</h1>
           <p className="text-sm text-slate-500">
             Free hosting spins down after inactivity. This takes up to 60 seconds on first load.
           </p>
@@ -119,7 +178,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="card p-6 max-w-md">
-          <h1 className="font-bold text-lg mb-2">Backend unreachable</h1>
+          <h1 className="font-bold text-lg mb-2">Server unreachable</h1>
           <p className="text-sm text-slate-600 mb-4 font-mono text-xs">{error}</p>
           <button className="btn btn-primary" onClick={() => setTick((t) => t + 1)}>
             Retry
@@ -129,35 +188,54 @@ export default function App() {
     )
   }
 
-  if (!boot) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-500">Loading…</div>
-  }
+  if (!boot) return <Loading />
 
   return (
     <BootCtx.Provider value={{ boot, refresh: () => setTick((t) => t + 1) }}>
       <div className="min-h-screen flex">
-        <aside className="w-56 shrink-0 border-r border-slate-200 bg-white flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-200">
+        <aside className="sidebar w-56 shrink-0 flex flex-col sticky top-0 h-screen">
+          <div className="px-4 py-4 border-b border-white/60">
             <BrandMark />
           </div>
-          <nav className="flex-1 py-1 overflow-y-auto">
-            {NAV.map((g) => (
-              <div key={g.group}>
-                <div className="nav-group-label">{g.group}</div>
-                {g.items.map((n) => (
-                  <NavLink
-                    key={n.to}
-                    to={n.to}
-                    end={n.to === '/'}
-                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          <nav className="flex-1 py-2 overflow-y-auto">
+            {NAV.map((g) => {
+              const open = openGroups.includes(g.group)
+              const hasActive = g.items.some((i) => i.to === window.location.pathname)
+              return (
+                <div key={g.group}>
+                  <button
+                    className="nav-group-btn"
+                    onClick={() => toggleGroup(g.group)}
+                    aria-expanded={open}
                   >
-                    {n.label}
-                  </NavLink>
-                ))}
-              </div>
-            ))}
+                    <span className="flex items-center gap-1.5">
+                      {g.group}
+                      {hasActive && !open && <span className="w-1 h-1 rounded-full bg-brand-600" title="active page inside" />}
+                    </span>
+                    <Chevron open={open} />
+                  </button>
+                  <div className={`nav-collapse ${open ? 'open' : ''}`}>
+                    <div>
+                      {g.items.map((n) => (
+                        <NavLink
+                          key={n.to}
+                          to={n.to}
+                          end={n.to === '/'}
+                          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                          onClick={() => {
+                            setOpenGroups((prev) => (prev.includes(g.group) ? prev : [...prev, g.group]))
+                          }}
+                        >
+                          {n.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </nav>
-          <div className="px-5 py-3 border-t border-slate-200 text-xs text-slate-500">
+          <div className="px-5 py-3 border-t border-white/60 text-xs text-slate-500">
             Signed in as <span className="font-semibold text-slate-700">{boot.actor.name}</span>
             <div>
               {boot.actor.email} · {boot.actor.role}
