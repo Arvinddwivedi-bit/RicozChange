@@ -53,7 +53,7 @@ function AppGate({ children }: { children: ReactNode }) {
             <div className="font-extrabold tracking-tight text-2xl mb-1">RicozChange</div>
             <div className="text-sm text-slate-500">AI-native change management</div>
           </div>
-          <SignIn signUpUrl="/sign-up" />
+          <SignIn />
         </div>
       </div>
     )
