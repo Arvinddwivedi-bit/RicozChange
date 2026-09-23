@@ -28,24 +28,23 @@ export function BrandMark({ subtitle }: { subtitle?: string }) {
   return (
     <div className="flex items-center gap-2.5">
       <span className="logo-tile">R</span>
-      <div>
-        <div className="font-extrabold tracking-tight text-lg leading-none" style={{ color: 'var(--color-navy)' }}>
+      <div className="min-w-0">
+        <div className="font-extrabold tracking-tight text-[17px] leading-none" style={{ color: 'var(--color-navy)' }}>
           Ricoz<span className="text-brand-600">Change</span>
         </div>
-        <div className="text-[11px] text-slate-500 mt-0.5">{subtitle ?? 'AI-native change management'}</div>
+        <div className="text-[11px] text-slate-500 mt-1 truncate">{subtitle ?? 'AI-native change management'}</div>
       </div>
     </div>
   )
 }
 
-const NAV: { group: string; items: { to: string; label: string }[] }[] = [
+const NAV: { group: string; items: { to: string; label: string; badge?: 'approvals' }[] }[] = [
   {
     group: 'Operate',
     items: [
       { to: '/', label: 'Dashboard' },
       { to: '/changes', label: 'Changes' },
-      { to: '/approvals', label: 'Approvals' },
-      { to: '/cab', label: 'CAB' },
+      { to: '/approvals', label: 'Approvals', badge: 'approvals' },
     ],
   },
   {
@@ -58,10 +57,7 @@ const NAV: { group: string; items: { to: string; label: string }[] }[] = [
   },
   {
     group: 'Trust',
-    items: [
-      { to: '/audit', label: 'Audit log' },
-      { to: '/integrations', label: 'Integrations' },
-    ],
+    items: [{ to: '/audit', label: 'Audit log' }],
   },
 ]
 
@@ -74,18 +70,93 @@ function openGroupFor(path: string): string {
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg
-      className={`nav-group-chevron ${open ? 'open' : ''}`}
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      aria-hidden
-    >
+    <svg className={`nav-group-chevron ${open ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
       <path d="M2 3.5 5 6.5 8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
+
+function NavBody({
+  boot,
+  openGroups,
+  toggleGroup,
+  pendingCount,
+  onNavigate,
+}: {
+  boot: Bootstrap
+  openGroups: string[]
+  toggleGroup: (g: string) => void
+  pendingCount: number | null
+  onNavigate?: () => void
+}) {
+  return (
+    <>
+      <div className="px-4 pt-4 pb-3">
+        <BrandMark />
+      </div>
+      <nav className="flex-1 overflow-y-auto pb-2">
+        {NAV.map((g) => {
+          const open = openGroups.includes(g.group)
+          const hasActive = g.items.some((i) => i.to === window.location.pathname)
+          return (
+            <div key={g.group}>
+              <button className="nav-group-label w-full text-left" onClick={() => toggleGroup(g.group)} aria-expanded={open}>
+                <span className="flex items-center gap-1.5">
+                  {g.group}
+                  {hasActive && !open && <span className="w-1 h-1 rounded-full bg-brand-600" />}
+                </span>
+                <Chevron open={open} />
+              </button>
+              <div className={`nav-collapse ${open ? 'open' : ''}`}>
+                <div>
+                  {g.items.map((n) => (
+                    <NavLink
+                      key={n.to}
+                      to={n.to}
+                      end={n.to === '/'}
+                      className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setOpenGroupsSafe(g.group)
+                        onNavigate?.()
+                      }}
+                    >
+                      {n.label}
+                      {n.badge === 'approvals' && pendingCount != null && pendingCount > 0 && (
+                        <span className="nav-count">{pendingCount}</span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </nav>
+      <div className="border-t border-slate-100 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/60 px-2.5 py-2">
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy text-[11px] font-bold text-white"
+            title={boot.actor.name}
+          >
+            {boot.actor.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+          </span>
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-[13px] font-semibold" style={{ color: 'var(--color-navy)' }}>
+              {boot.actor.name}
+            </div>
+            <div className="truncate text-[11px] text-slate-500">{boot.actor.role}</div>
+          </div>
+        </div>
+        <div className="mt-2 px-1 text-[10px] text-slate-400">
+          {CLERK_ENABLED ? 'Clerk authentication' : 'Demo mode · single-user auth'}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Helper so NavBody can expand its own group on click without prop drilling setters.
+let setOpenGroupsSafe: (g: string) => void = () => {}
 
 export function Loading() {
   return (
@@ -100,6 +171,8 @@ export default function App() {
   const [tick, setTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [waking, setWaking] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(GROUP_KEY)
@@ -110,8 +183,8 @@ export default function App() {
     return ['Operate']
   })
 
-  // Keep the group containing the current path reachable: if the user deep-links
-  // to /audit with Trust collapsed, expand Trust once on mount.
+  setOpenGroupsSafe = (g: string) => setOpenGroups((prev) => (prev.includes(g) ? prev : [...prev, g]))
+
   useEffect(() => {
     const current = openGroupFor(window.location.pathname)
     setOpenGroups((prev) => (prev.includes(current) ? prev : [...prev, current]))
@@ -129,9 +202,8 @@ export default function App() {
   useEffect(() => {
     setError(null)
     setWaking(false)
-
     let attempts = 0
-    const maxAttempts = 12   // 12 × 8s = ~96s total wait (covers Render cold start)
+    const maxAttempts = 12
     let cancelled = false
 
     async function tryFetch() {
@@ -156,6 +228,16 @@ export default function App() {
     return () => { cancelled = true }
   }, [tick])
 
+  // Pending approvals badge (nav + user trust): light, refreshed on every refresh().
+  useEffect(() => {
+    if (!boot) return
+    let cancelled = false
+    api<{ acted: boolean }[]>('/api/notifications')
+      .then((rows) => { if (!cancelled) setPendingCount(rows.filter((r) => !r.acted).length) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [boot, tick])
+
   function toggleGroup(group: string) {
     setOpenGroups((prev) => (prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]))
   }
@@ -164,7 +246,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="card p-6 max-w-md text-center">
-          <div className="flex justify-center mb-3"><span className="spinner" /></div>
+          <div className="flex justify-center mb-3"><span className="spinner" style={{ color: 'var(--color-brand-600)' }} /></div>
           <h1 className="font-bold text-lg mb-2">Waking up the server</h1>
           <p className="text-sm text-slate-500">
             Free hosting spins down after inactivity. This takes up to 60 seconds on first load.
@@ -190,62 +272,45 @@ export default function App() {
 
   if (!boot) return <Loading />
 
+  const sidebar = (
+    <div className="sidebar flex h-full w-[260px] shrink-0 flex-col">
+      <NavBody
+        boot={boot}
+        openGroups={openGroups}
+        toggleGroup={toggleGroup}
+        pendingCount={pendingCount}
+        onNavigate={() => setDrawerOpen(false)}
+      />
+    </div>
+  )
+
   return (
     <BootCtx.Provider value={{ boot, refresh: () => setTick((t) => t + 1) }}>
-      <div className="min-h-screen flex">
-        <aside className="sidebar w-56 shrink-0 flex flex-col sticky top-0 h-screen">
-          <div className="px-4 py-4 border-b border-white/60">
-            <BrandMark />
-          </div>
-          <nav className="flex-1 py-2 overflow-y-auto">
-            {NAV.map((g) => {
-              const open = openGroups.includes(g.group)
-              const hasActive = g.items.some((i) => i.to === window.location.pathname)
-              return (
-                <div key={g.group}>
-                  <button
-                    className="nav-group-btn"
-                    onClick={() => toggleGroup(g.group)}
-                    aria-expanded={open}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {g.group}
-                      {hasActive && !open && <span className="w-1 h-1 rounded-full bg-brand-600" title="active page inside" />}
-                    </span>
-                    <Chevron open={open} />
-                  </button>
-                  <div className={`nav-collapse ${open ? 'open' : ''}`}>
-                    <div>
-                      {g.items.map((n) => (
-                        <NavLink
-                          key={n.to}
-                          to={n.to}
-                          end={n.to === '/'}
-                          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                          onClick={() => {
-                            setOpenGroups((prev) => (prev.includes(g.group) ? prev : [...prev, g.group]))
-                          }}
-                        >
-                          {n.label}
-                        </NavLink>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </nav>
-          <div className="px-5 py-3 border-t border-white/60 text-xs text-slate-500">
-            Signed in as <span className="font-semibold text-slate-700">{boot.actor.name}</span>
-            <div>
-              {boot.actor.email} · {boot.actor.role}
+      {/* Mobile top bar */}
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden">
+        <button className="icon-btn" aria-label="Open menu" onClick={() => setDrawerOpen(true)}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+        <BrandMark subtitle={undefined} />
+      </div>
+
+      <div className="flex">
+        {/* Desktop sidebar */}
+        <aside className="sidebar sticky top-0 hidden h-screen w-[260px] shrink-0 lg:block">{sidebar}</aside>
+
+        {/* Mobile drawer */}
+        {drawerOpen && (
+          <>
+            <div className="drawer-scrim lg:hidden" onClick={() => setDrawerOpen(false)} />
+            <div className="drawer-panel lg:hidden">
+              {sidebar}
             </div>
-          </div>
-          <div className="px-5 pb-4 text-[10px] text-slate-400">
-            {CLERK_ENABLED ? 'Clerk authentication' : 'Demo mode · single-user auth'}
-          </div>
-        </aside>
-        <main className="flex-1 min-w-0">
+          </>
+        )}
+
+        <main className="min-w-0 flex-1">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/changes" element={<Changes />} />
