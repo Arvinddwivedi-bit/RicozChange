@@ -96,7 +96,25 @@ Copy `backend/.env.example` → `.env`. Highlights:
 - `ANTHROPIC_API_KEY` — enables Claude-drafted plans; without it, deterministic template drafts are used.
 - `DATABASE_URL` — defaults to SQLite at `data/Ricozchange.db`; use Postgres in production.
 - `GATE_BY_DEMO_USER=true` + Clerk vars — real auth via Clerk JWKS; demo mode is single-user.
+- `ADMIN_EMAILS` — comma-separated emails that get an **admin account auto-provisioned** on first Clerk sign-in.
 - `SLACK_*` — the real Slack integration (see above); all empty = demo outbox only.
+
+## Real sign-in (Clerk, ~10 minutes)
+
+The demo runs in open demo mode (single demo actor, no login). To require real sign-in:
+
+1. **Create the Clerk app** — [dashboard.clerk.com](https://dashboard.clerk.com) → **Create application**. Name it `RicozChange`, enable **Email address** (and Google/GitHub if you like), keep the default sign-in appearance.
+2. **Copy four values** from Clerk:
+   - **Publishable key** (`pk_test_…`) from *API keys* → used at **build time** by the frontend.
+   - **JWKS URL** — `https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json` (shown on the same API keys page).
+   - **Issuer** — `https://<your-instance>.clerk.accounts.dev`.
+   - **Secret key** (`sk_test_…`) — lets the backend resolve emails from `sub`-only session tokens.
+3. **Set them on Render** (web service → Environment):
+   `VITE_CLERK_PUBLISHABLE_KEY`, `GATE_BY_DEMO_USER=1`, `CLERK_JWKS_URL`, `CLERK_ISSUER`, `CLERK_SECRET_KEY`, and `ADMIN_EMAILS=your.real@email.com`.
+   `VITE_CLERK_PUBLISHABLE_KEY` is a build-time variable — Render's Docker builds pick it up automatically via the Dockerfile `ARG`.
+4. **Add your sign-in URLs** in Clerk (*Paths* or *Home → Show all* → customize): sign-in path `/`, sign-up `/sign-up`.
+5. **Save** → Render rebuilds → open your demo URL: you'll get the RicozChange sign-in screen, and after signing in with `ADMIN_EMAILS` email #1, your admin account is **created automatically** (audited as `user_provisioned`). Every other person must sign in with an email that matches a seeded user (or you add it to `ADMIN_EMAILS` / the users table).
+6. **Rollback is trivial**: remove `VITE_CLERK_PUBLISHABLE_KEY` and set `GATE_BY_DEMO_USER=0` → rebuild → demo mode returns (all data intact).
 
 ## Tests
 

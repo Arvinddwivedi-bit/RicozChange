@@ -37,6 +37,13 @@ AUTO_SEED = _bool("AUTO_SEED", True)
 GATE_BY_DEMO_USER = _bool("GATE_BY_DEMO_USER", False)
 DEFAULT_USER_EMAIL = os.getenv("DEFAULT_USER_EMAIL", "priya@Ricozchange.dev")
 
+# Emails that get an admin account auto-provisioned on first Clerk sign-in.
+# Comma-separated, case-insensitive. Lets the owner sign in with their real
+# identity and land as admin without any database surgery.
+ADMIN_EMAILS = {
+    e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
+}
+
 # Clerk (production auth). Leave empty in demo mode.
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
 CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")

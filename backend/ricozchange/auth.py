@@ -12,7 +12,7 @@ import jwt
 import requests
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import config
@@ -35,10 +35,45 @@ def _fetch_jwks() -> dict:
     return _jwks_cache
 
 
-def _user_from_email(db: Session, email: str) -> User:
-    user = db.execute(select(User).where(User.email == email.lower())).scalars().first()
+def _user_from_email(db: Session, email: str, clerk_subject: str | None = None) -> User:
+    """Map a verified email to a user; auto-provision admins listed in ADMIN_EMAILS.
+
+    First sign-in from an ADMIN_EMAILS address creates the admin account and
+    records the Clerk subject on it. Existing users get their clerk_id stamped
+    on first login so the mapping is auditable. Lookup is case-insensitive
+    (Clerk emails are lowercased; seeded demo emails are not).
+    """
+    email = email.lower()
+    user = db.execute(
+        select(User).where(func.lower(User.email) == email)
+    ).scalars().first()
     if user is None:
+        if email in config.ADMIN_EMAILS:
+            from .audit import log_action
+
+            user = User(
+                name=email.split("@")[0].replace(".", " ").title(),
+                email=email,
+                role="admin",
+                clerk_id=clerk_subject,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            log_action(
+                db,
+                "auth",
+                user.id,
+                "user_provisioned",
+                actor=email,
+                detail="admin auto-provisioned via ADMIN_EMAILS on first sign-in",
+            )
+            db.commit()
+            return user
         raise HTTPException(status_code=403, detail=f"No RicozChange user for {email}")
+    if clerk_subject and user.clerk_id != clerk_subject:
+        user.clerk_id = clerk_subject
+        db.commit()
     return user
 
 
@@ -65,15 +100,15 @@ def get_actor(
         except Exception as exc:
             raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
         email = (claims.get("email") or "").lower()
+        subject = (claims.get("sub") or "") or None
         if not email:
             # Clerk session tokens carry `sub` (the Clerk user id) and often no
             # email claim. Fall back to Clerk's Backend API to resolve it.
-            subject = claims.get("sub") or ""
             if subject and config.CLERK_SECRET_KEY:
                 email = _email_from_clerk(subject)
         if not email:
             raise HTTPException(status_code=401, detail="Token has no email claim")
-        return _user_from_email(db, email)
+        return _user_from_email(db, email, clerk_subject=subject)
 
     user = db.execute(select(User).where(User.email == config.DEFAULT_USER_EMAIL)).scalars().first()
     if user is None:

@@ -5,6 +5,9 @@
 # ---- Stage 1: build the frontend ----
 FROM node:20-alpine AS web
 WORKDIR /web
+# Clerk publishable key (build-time). Empty = demo mode (no sign-in screen).
+ARG VITE_CLERK_PUBLISHABLE_KEY=""
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-fund --no-audit
 COPY frontend/ .
