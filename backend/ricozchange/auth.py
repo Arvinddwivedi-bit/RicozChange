@@ -127,7 +127,12 @@ def _email_from_clerk(subject: str) -> str:
         return _clerk_email_cache[subject]
     resp = requests.get(
         f"https://api.clerk.com/v1/users/{subject}",
-        headers={"Authorization": f"Bearer {config.CLERK_SECRET_KEY}"},
+        headers={
+            "Authorization": f"Bearer {config.CLERK_SECRET_KEY}",
+            # Cloudflare in front of api.clerk.com 403s default Python client
+            # user-agents (error 1010) — identify ourselves explicitly.
+            "User-Agent": "RicozChange/1.0 (change-management; +https://github.com/Arvinddwivedi-bit/RicozChange)",
+        },
         timeout=10,
     )
     if resp.status_code != 200:
