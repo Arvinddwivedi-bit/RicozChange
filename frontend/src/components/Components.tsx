@@ -6,7 +6,7 @@ import {
   type Edge,
   type Node,
 } from '@xyflow/react'
-import { fmtDate, scoreColor, type ChangeT, type Factor } from '../api'
+import { fmtDate, scoreColor, statusColor, type ChangeT, type Factor } from '../api'
 
 export function ScoreBadge({ score }: { score: number | null | undefined }) {
   return (
@@ -18,7 +18,7 @@ export function ScoreBadge({ score }: { score: number | null | undefined }) {
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700">
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColor(status)}`}>
       {status}
     </span>
   )

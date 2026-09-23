@@ -74,7 +74,7 @@ export default function CABPage() {
         <div className="card divide-y divide-slate-100">
           {meetings.length === 0 && <div className="p-6 text-sm text-slate-500">No meetings yet.</div>}
           {meetings.map((m) => (
-            <button key={m.id} className={`w-full text-left p-4 hover:bg-slate-50 ${m.id === openId ? 'bg-indigo-50/50' : ''}`} onClick={() => setOpenId(m.id)}>
+            <button key={m.id} className={`w-full text-left p-4 hover:bg-slate-50 ${m.id === openId ? 'bg-brand-50/50' : ''}`} onClick={() => setOpenId(m.id)}>
               <div className="flex items-center justify-between">
                 <span className="font-semibold">CAB #{m.id} · {fmtDate(m.scheduled_at)}</span>
                 <StatusBadge status={m.status} />

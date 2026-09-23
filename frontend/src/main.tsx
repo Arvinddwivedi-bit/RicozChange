@@ -16,7 +16,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import '@xyflow/react/dist/style.css'
 import './index.css'
-import App from './App'
+import App, { BrandMark } from './App'
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined
 const CLERK_ENABLED = Boolean(CLERK_KEY && CLERK_KEY.startsWith('pk_'))
@@ -49,9 +49,8 @@ function AppGate({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className="font-extrabold tracking-tight text-2xl mb-1">RicozChange</div>
-            <div className="text-sm text-slate-500">AI-native change management</div>
+          <div className="flex justify-center mb-6">
+            <BrandMark />
           </div>
           <SignIn />
         </div>

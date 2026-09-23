@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type NotificationT } from '../api'
+import { useBoot } from '../App'
 
-export default function SlackDemo() {
+export default function Approvals() {
+  const { boot } = useBoot()
   const [notes, setNotes] = useState<NotificationT[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [showDecided, setShowDecided] = useState(false)
 
   const load = useCallback(() => {
     api<NotificationT[]>('/api/notifications').then(setNotes)
@@ -28,41 +31,69 @@ export default function SlackDemo() {
 
   if (!notes) return <div className="p-8 text-slate-500">Loading…</div>
 
+  const pending = notes.filter((n) => !n.acted)
+  const decided = notes.filter((n) => n.acted)
+  const visible = showDecided ? notes : pending
+
+  const pendingForMe = pending.filter((n) => {
+    const blocks = JSON.stringify(n.message.blocks)
+    return blocks.includes(boot.actor.name)
+  })
+
   return (
-    <div className="p-8 max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Slack approvals — demo outbox</h1>
-        <p className="text-sm text-slate-500">
-          In production these are real Slack interactive messages. The payload here is exactly what the Slack app would send —
-          score, the "why", and one-click decisions. Approve one and watch the change move.
-        </p>
+    <div className="p-8 max-w-4xl space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Approval inbox</h1>
+          <p className="text-sm text-slate-500">
+            Every decision lands here — and in Slack when the workspace is connected. The card shows the full risk picture:
+            score, the &ldquo;why&rdquo;, and one-click approve/reject.
+          </p>
+        </div>
+        <span className="card px-3 py-2 text-xs shrink-0">
+          <span className="font-bold text-brand-600">{pending.length}</span> pending ·{' '}
+          <span className="font-semibold text-slate-700">{pendingForMe.length}</span> awaiting you
+        </span>
       </div>
 
       {err && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{err}</div>}
 
-      {notes.length === 0 && (
+      <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+        <input type="checkbox" checked={showDecided} onChange={(e) => setShowDecided(e.target.checked)} />
+        Show decided ({decided.length})
+      </label>
+
+      {visible.length === 0 && (
         <div className="card p-6 text-sm text-slate-500">
-          Nothing queued yet. Submit a normal/major change and the approval requests land here.
+          {showDecided ? 'No approval history yet.' : 'Inbox zero. New approval requests appear here automatically.'}
         </div>
       )}
 
       <div className="space-y-4">
-        {notes.map((n) => (
+        {visible.map((n) => (
           <div key={n.id} className="card overflow-hidden">
-            <div className="bg-slate-800 text-slate-100 px-4 py-2 text-xs flex items-center gap-2">
-              <span className="font-bold">{n.channel}</span>
-              <span className="text-slate-400">· Slack</span>
+            <div className="bg-navy text-white px-4 py-2 text-xs flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 font-semibold">
+                <span className="w-3.5 h-3.5 rounded-sm bg-brand-600 inline-flex items-center justify-center text-[8px] font-bold">#</span>
+                {n.channel}
+              </span>
+              <span className="text-white/50">· Slack message payload</span>
+              {n.sent_at && <span className="text-white/40">· delivered</span>}
               {n.acted && (
-                <span className={`ml-auto rounded px-2 py-0.5 font-semibold ${n.acted_action === 'approved' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <span
+                  className={`ml-auto rounded px-2 py-0.5 font-semibold ${
+                    n.acted_action === 'approved' ? 'bg-emerald-600' : 'bg-brand-600'
+                  }`}
+                >
                   {n.acted_action}
                 </span>
               )}
             </div>
             <div className="p-4 space-y-3">
-              <div className="font-semibold text-sm">{n.message.text}</div>
+              <div className="font-semibold text-sm">{n.message.text.replace(/\*/g, '')}</div>
               {n.message.blocks.map((b, i) => {
                 if (b.type === 'section' && b.text) {
-                  return <div key={i} className="text-sm">{b.text.replace(/\*/g, '')}</div>
+                  return <div key={i} className="text-sm text-slate-700">{b.text.replace(/\*/g, '')}</div>
                 }
                 if (b.type === 'context' && b.fields) {
                   return (
@@ -78,11 +109,11 @@ export default function SlackDemo() {
                 }
                 if (b.type === 'risk_why' && b.items) {
                   return (
-                    <div key={i} className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 space-y-1">
-                      <div className="text-[10px] font-bold uppercase text-indigo-500">Why this score</div>
+                    <div key={i} className="rounded-lg border border-brand-100 bg-brand-50/60 p-3 space-y-1">
+                      <div className="text-[10px] font-bold uppercase text-brand-700 tracking-wide">Why this score</div>
                       {b.items.map((f, j) => (
                         <div key={j} className="flex gap-2 text-xs">
-                          <span className={`font-mono font-bold ${f.points >= 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                          <span className={`font-mono font-bold ${f.points >= 0 ? 'text-brand-600' : 'text-emerald-600'}`}>
                             {f.points > 0 ? `+${f.points}` : f.points}
                           </span>
                           <span className="text-slate-700">{f.label}</span>

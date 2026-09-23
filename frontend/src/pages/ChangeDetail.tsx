@@ -120,7 +120,7 @@ export default function ChangeDetail() {
           </section>
 
           {(change.status === 'completed' || change.status === 'failed') && !change.post_change_result && (
-            <section className="card p-5 border-indigo-300">
+            <section className="card p-5 border-brand-300">
               <h2 className="font-bold">Post-change check</h2>
               <p className="text-sm text-slate-500 mb-2">Did it work? This feeds the failure-rate dashboard and future risk scores.</p>
               <textarea className="input" rows={2} placeholder="What happened?" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -186,7 +186,7 @@ export default function ChangeDetail() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold">Blast radius</h2>
               {suggestions.length > 0 && (
-                <button className="text-xs font-semibold text-indigo-600 underline" onClick={() => setShowSuggestions((v) => !v)}>
+                <button className="text-xs font-semibold text-brand-600 underline" onClick={() => setShowSuggestions((v) => !v)}>
                   {showSuggestions ? 'hide' : 'suggest safer windows'}
                 </button>
               )}
@@ -245,12 +245,12 @@ function AiDrafts({ changeId, change, onDone }: { changeId: number; change: Chan
   } : null)
 
   return (
-    <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+    <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-indigo-800">✨ AI drafting</span>
-        {engine && <span className="text-[10px] uppercase text-indigo-500">engine: {engine}</span>}
+        <span className="text-xs font-bold text-brand-800">✨ AI drafting</span>
+        {engine && <span className="text-[10px] uppercase text-brand-500">engine: {engine}</span>}
       </div>
-      <p className="text-xs text-indigo-700/80 mt-1">Drafts only — nothing is applied until a human reviews and approves.</p>
+      <p className="text-xs text-brand-700/80 mt-1">Drafts only — nothing is applied until a human reviews and approves.</p>
       <button className="btn btn-ghost mt-2" disabled={busy} onClick={generate}>
         {busy ? 'Drafting…' : hasDrafts ? 'Re-generate drafts' : 'Generate rollback / test / comms drafts'}
       </button>

@@ -128,7 +128,7 @@ export default function ChangeForm() {
                   key={t.id}
                   onClick={() => applyTemplate(t.id)}
                   className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                    templateId === t.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    templateId === t.id ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {t.icon} {t.name}
@@ -234,7 +234,7 @@ export default function ChangeForm() {
               {suggestions.map((s) => (
                 <button
                   key={s.start}
-                  className="w-full text-left rounded-lg border border-slate-200 p-3 text-sm hover:border-indigo-300 hover:bg-indigo-50/50"
+                  className="w-full text-left rounded-lg border border-slate-200 p-3 text-sm hover:border-brand-300 hover:bg-brand-50/50"
                   onClick={() => {
                     const start = new Date(s.start)
                     const end = new Date(s.end)

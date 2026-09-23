@@ -39,7 +39,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi label="Total changes" value={data.total_changes} />
         <Kpi label="Pending approvals" value={data.pending_approvals} accent="text-sky-600" />
-        <Kpi label="In flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-indigo-600" />
+        <Kpi label="In flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-brand-600" />
         <div className="card p-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Change failure rate</div>
           <div className={`mt-1 text-3xl font-extrabold ${cfrTone}`}>{cfr}%</div>
@@ -55,7 +55,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {data.top_risk.length === 0 && <p className="text-sm text-slate-500">No open changes.</p>}
             {data.top_risk.map((c) => (
-              <Link key={c.id} to={`/changes/${c.id}`} className="block rounded-lg border border-slate-100 p-3 hover:border-indigo-200 hover:bg-indigo-50/40">
+              <Link key={c.id} to={`/changes/${c.id}`} className="block rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40">
                 <div className="flex items-center gap-2">
                   <ScoreBadge score={c.risk_score} />
                   <span className="font-semibold text-sm">{c.title}</span>
@@ -75,7 +75,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {data.upcoming.length === 0 && <p className="text-sm text-slate-500">Nothing scheduled yet.</p>}
             {data.upcoming.map((c) => (
-              <Link key={c.id} to={`/changes/${c.id}`} className="block rounded-lg border border-slate-100 p-3 hover:border-indigo-200 hover:bg-indigo-50/40">
+              <Link key={c.id} to={`/changes/${c.id}`} className="block rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-sm">{c.title}</span>
                   <StatusBadge status={c.status} />

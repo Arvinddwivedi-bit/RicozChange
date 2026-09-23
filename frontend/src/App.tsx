@@ -8,7 +8,9 @@ import ChangeForm from './pages/ChangeForm'
 import Simulator from './pages/Simulator'
 import GraphPage from './pages/GraphPage'
 import CABPage from './pages/CABPage'
-import SlackDemo from './pages/SlackDemo'
+import Approvals from './pages/Approvals'
+import AuditLog from './pages/AuditLog'
+import Integrations from './pages/Integrations'
 import Freezes from './pages/Freezes'
 
 interface Ctx {
@@ -22,14 +24,45 @@ export function useBoot(): Ctx {
   return ctx
 }
 
-const NAV = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/changes', label: 'Changes' },
-  { to: '/simulator', label: 'Simulator' },
-  { to: '/graph', label: 'Blast radius' },
-  { to: '/cab', label: 'CAB' },
-  { to: '/slack', label: 'Slack demo' },
-  { to: '/freezes', label: 'Freezes' },
+export function BrandMark({ subtitle }: { subtitle?: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="logo-tile">R</span>
+      <div>
+        <div className="font-extrabold tracking-tight text-lg leading-none" style={{ color: 'var(--color-navy)' }}>
+          Ricoz<span className="text-brand-600">Change</span>
+        </div>
+        <div className="text-[11px] text-slate-500 mt-0.5">{subtitle ?? 'AI-native change management'}</div>
+      </div>
+    </div>
+  )
+}
+
+const NAV: { group: string; items: { to: string; label: string }[] }[] = [
+  {
+    group: 'Operate',
+    items: [
+      { to: '/', label: 'Dashboard' },
+      { to: '/changes', label: 'Changes' },
+      { to: '/approvals', label: 'Approvals' },
+      { to: '/cab', label: 'CAB' },
+    ],
+  },
+  {
+    group: 'Plan',
+    items: [
+      { to: '/simulator', label: 'Simulator' },
+      { to: '/graph', label: 'Blast radius' },
+      { to: '/freezes', label: 'Freezes' },
+    ],
+  },
+  {
+    group: 'Trust',
+    items: [
+      { to: '/audit', label: 'Audit log' },
+      { to: '/integrations', label: 'Integrations' },
+    ],
+  },
 ]
 
 export default function App() {
@@ -105,25 +138,23 @@ export default function App() {
       <div className="min-h-screen flex">
         <aside className="w-56 shrink-0 border-r border-slate-200 bg-white flex flex-col">
           <div className="px-5 py-4 border-b border-slate-200">
-            <div className="font-extrabold tracking-tight text-lg">RicozChange</div>
-            <div className="text-xs text-slate-500">AI-native change management</div>
+            <BrandMark />
           </div>
-          <nav className="flex-1 py-3">
-            {NAV.map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.to === '/'}
-                className={({ isActive }) =>
-                  `block px-5 py-2 text-sm ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold border-r-2 border-indigo-600'
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`
-                }
-              >
-                {n.label}
-              </NavLink>
+          <nav className="flex-1 py-1 overflow-y-auto">
+            {NAV.map((g) => (
+              <div key={g.group}>
+                <div className="nav-group-label">{g.group}</div>
+                {g.items.map((n) => (
+                  <NavLink
+                    key={n.to}
+                    to={n.to}
+                    end={n.to === '/'}
+                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                  >
+                    {n.label}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </nav>
           <div className="px-5 py-3 border-t border-slate-200 text-xs text-slate-500">
@@ -133,7 +164,7 @@ export default function App() {
             </div>
           </div>
           <div className="px-5 pb-4 text-[10px] text-slate-400">
-            {CLERK_ENABLED ? 'MVP · Clerk authentication' : 'MVP · demo mode (single-user auth)'}
+            {CLERK_ENABLED ? 'Clerk authentication' : 'Demo mode · single-user auth'}
           </div>
         </aside>
         <main className="flex-1 min-w-0">
@@ -145,7 +176,9 @@ export default function App() {
             <Route path="/simulator" element={<Simulator />} />
             <Route path="/graph" element={<GraphPage />} />
             <Route path="/cab" element={<CABPage />} />
-            <Route path="/slack" element={<SlackDemo />} />
+            <Route path="/approvals" element={<Approvals />} />
+            <Route path="/audit" element={<AuditLog />} />
+            <Route path="/integrations" element={<Integrations />} />
             <Route path="/freezes" element={<Freezes />} />
             <Route path="*" element={<div className="p-8 text-slate-500">Not found</div>} />
           </Routes>

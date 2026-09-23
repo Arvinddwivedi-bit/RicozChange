@@ -69,7 +69,7 @@ export default function Simulator() {
                 <button
                   key={t}
                   onClick={() => setRiskType(t)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${riskType === t ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${riskType === t ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}
                 >
                   {t}
                 </button>
@@ -97,14 +97,14 @@ export default function Simulator() {
                 s.setHours(s.getHours() + hours)
                 setStart(localIso(s))
               }}
-              className="mt-2 w-full accent-indigo-600"
+              className="mt-2 w-full accent-brand-600"
             />
             <div className="mt-1 text-sm font-semibold">{new Date(start).toLocaleString(undefined, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
           </div>
 
           <div>
             <label className="text-xs font-semibold text-slate-600">Duration: {durationH}h</label>
-            <input type="range" min={0.5} max={8} step={0.5} value={durationH} onChange={(e) => setDurationH(Number(e.target.value))} className="mt-1 w-full accent-indigo-600" />
+            <input type="range" min={0.5} max={8} step={0.5} value={durationH} onChange={(e) => setDurationH(Number(e.target.value))} className="mt-1 w-full accent-brand-600" />
           </div>
 
           <div>

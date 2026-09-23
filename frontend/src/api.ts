@@ -110,6 +110,9 @@ export interface NotificationT {
   }
   acted: boolean
   acted_action: string | null
+  sent_at: string | null
+  slack_ts: string | null
+  delivery_error: string | null
   created_at: string
 }
 
@@ -185,11 +188,11 @@ export function scoreColor(score: number | null | undefined): string {
 export function statusColor(status: string): string {
   switch (status) {
     case 'draft':
-      return 'bg-slate-200 text-slate-700'
+      return 'bg-slate-100 text-slate-600'
     case 'submitted':
       return 'bg-sky-100 text-sky-700'
     case 'approved':
-      return 'bg-indigo-100 text-indigo-700'
+      return 'bg-indigo-50 text-navy'
     case 'implementing':
       return 'bg-amber-100 text-amber-700'
     case 'completed':
@@ -197,9 +200,9 @@ export function statusColor(status: string): string {
     case 'failed':
       return 'bg-red-100 text-red-700'
     case 'rejected':
-      return 'bg-rose-100 text-rose-700'
+      return 'bg-brand-100 text-brand-700'
     case 'cancelled':
-      return 'bg-slate-100 text-slate-500'
+      return 'bg-slate-100 text-slate-400'
     default:
       return 'bg-slate-100 text-slate-600'
   }

@@ -63,7 +63,7 @@ export default function Changes() {
       </div>
 
       {params.get('new') && (
-        <Link to="/changes/new" className="block card p-4 border-indigo-300 bg-indigo-50 text-sm text-indigo-800 font-medium">
+        <Link to="/changes/new" className="block card p-4 border-brand-300 bg-brand-50 text-sm text-brand-800 font-medium">
           Ready to create one? Start here →
         </Link>
       )}
@@ -75,7 +75,7 @@ export default function Changes() {
             key={s}
             onClick={() => setStatus(s)}
             className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-              status === s ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              status === s ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             {s}
