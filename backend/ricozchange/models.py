@@ -257,3 +257,24 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[dict] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class EmailInbound(Base):
+    """One inbound email processed by the email-to-change pipeline.
+
+    Rows are the delivery/parsing audit: every accepted email records the change
+    it produced (status='created') or why nothing was filed (status='rejected'
+    with error_detail). message_id is unique so the same email is never filed
+    twice (Message-ID dedupe)."""
+
+    __tablename__ = "email_inbound"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(500), unique=True, index=True)
+    from_addr: Mapped[str] = mapped_column(String(200), index=True)
+    subject: Mapped[str] = mapped_column(String(500), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    parsed_change_id: Mapped[int | None] = mapped_column(ForeignKey("changes.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="created")  # created|rejected|error
+    error_detail: Mapped[str] = mapped_column(Text, default="")
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)

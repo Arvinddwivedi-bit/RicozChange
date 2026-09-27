@@ -94,13 +94,14 @@ export interface WindowSuggestion {
 
 export interface NotificationT {
   id: number
-  kind: string
+  kind: 'slack' | 'email'
   channel: string
   change_id: number | null
   approval_id: number | null
   message: {
     text: string
-    blocks: {
+    subject?: string
+    blocks?: {
       type: string
       text?: string
       fields?: Record<string, string | number>

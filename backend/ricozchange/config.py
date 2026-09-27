@@ -59,6 +59,17 @@ SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET", "")
 SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI", "")  # e.g. https://<host>/api/integrations/slack/oauth/callback
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ricozchange-1y64.onrender.com")
 
+# Email-to-change (phase 2, week 3). All optional; empty = demo outbox mode.
+# Signature secret for the SendGrid Inbound Parse webhook (verification on when set).
+EMAIL_WEBHOOK_KEY = os.getenv("EMAIL_WEBHOOK_KEY", "")
+# Comma-separated allowlist of sender domains allowed to file changes by email.
+# Empty = allow all (demo). Production should set e.g. "yourcompany.com".
+EMAIL_ALLOWED_DOMAINS = {
+    d.strip().lower() for d in os.getenv("EMAIL_ALLOWED_DOMAINS", "").split(",") if d.strip()
+}
+# From address used on outbound notification emails (digests, prompts, fallbacks).
+EMAIL_FROM_ADDR = os.getenv("EMAIL_FROM_ADDR", "changes@ricozchange.dev")
+
 # Claude API for AI drafting. Without a key, template-based drafting is used.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")

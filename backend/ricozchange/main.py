@@ -1,6 +1,7 @@
 """FastAPI entry point."""
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ from sqlalchemy.orm import Session
 from . import config, db as dbmod
 from . import services
 from . import auth as auth_mod
+from . import email_app
 from . import slack_app
 from fastapi.security import HTTPAuthorizationCredentials
 from .auth import _bearer, get_actor, require_actor, require_role
@@ -28,6 +30,7 @@ from .models import (
     CABMeeting,
     Change,
     DependencyEdge,
+    EmailInbound,
     FreezeWindow,
     Notification,
     RiskFactor,
@@ -930,6 +933,129 @@ def link_slack(user_id: int, payload: SlackLinkIn, db: Session = Depends(dbmod.g
     log_action(db, "user", user.id, "slack_link", actor=actor.name, detail=payload.slack_id or "unlinked")
     db.commit()
     return {"id": user.id, "name": user.name, "slack_id": user.slack_id}
+
+
+# ---------- Email integration (phase 2, week 3) ----------
+
+class EmailInboundIn(BaseModel):
+    """SendGrid Inbound Parse POSTs multipart form fields; this model accepts
+    the JSON/JSON-encoded subset our pipeline needs (parsed by FastAPI from
+    form data in the webhook route)."""
+    message_id: str = ""
+    from_addr: str
+    subject: str = ""
+    body: str = ""
+
+
+def _serialize_inbound(row: EmailInbound) -> dict:
+    return {
+        "id": row.id,
+        "message_id": row.message_id,
+        "from_addr": row.from_addr,
+        "subject": row.subject,
+        "status": row.status,
+        "error_detail": row.error_detail,
+        "parsed_change_id": row.parsed_change_id,
+        "received_at": row.received_at.isoformat(),
+    }
+
+
+@app.get("/api/integrations/email/status")
+def email_status(db: Session = Depends(dbmod.get_db)) -> dict:
+    """Connection state for the Integrations page."""
+    return {
+        "webhook_url": f"{config.PUBLIC_BASE_URL}{email_app.WEBHOOK_URL}",
+        "signature_check": bool(config.EMAIL_WEBHOOK_KEY),
+        "mailbox": config.EMAIL_FROM_ADDR,
+        "allowed_domains": sorted(config.EMAIL_ALLOWED_DOMAINS) or ["(any — demo mode)"],
+    }
+
+
+@app.get("/api/integrations/email/inbound")
+def email_inbound_list(
+    limit: int = Query(default=20, le=100),
+    db: Session = Depends(dbmod.get_db),
+    actor: User = Depends(require_role("admin", "manager")),
+) -> dict:
+    rows = db.execute(
+        select(EmailInbound).order_by(EmailInbound.id.desc()).limit(limit)
+    ).scalars().all()
+    return {"items": [_serialize_inbound(r) for r in rows]}
+
+
+@app.post("/api/integrations/email/simulate")
+def email_simulate(payload: EmailInboundIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+    """Run the identical inbound pipeline without a mail server (demos/tests)."""
+    from_addr = payload.from_addr.strip() or "demo@ricozchange.dev"
+    result, row = email_app.process_inbound(
+        db,
+        message_id=payload.message_id or f"<sim-{datetime.utcnow().timestamp()}@rico.local>",
+        from_addr=from_addr,
+        subject=payload.subject,
+        body=payload.body,
+    )
+    db.commit()
+    db.refresh(row)
+    return {**result, "inbound_id": row.id, "status_code": row.status, "error_detail": row.error_detail}
+
+
+@app.post("/api/integrations/email/inbound")
+async def email_inbound_webhook(request: Request, db: Session = Depends(dbmod.get_db)) -> dict:
+    """SendGrid Inbound Parse webhook (multipart form; JSON also accepted).
+
+    Signature: SendGrid appends our configured query params to the POST URL, so
+    the shared secret rides as ?key=... — verified constant-time when
+    EMAIL_WEBHOOK_KEY is set. Sender must be on the allowlist; Message-ID is
+    deduped; the pipeline never auto-submits what it files.
+    """
+    message_id = from_addr = subject = body = ""
+    if (request.headers.get("content-type") or "").startswith("application/json"):
+        try:
+            data = await request.json()
+        except Exception:  # noqa: BLE001
+            data = {}
+        from_addr = str(data.get("from_addr") or "")
+        subject = str(data.get("subject") or "")
+        body = str(data.get("body") or "")
+        message_id = str(data.get("message_id") or "")
+    else:
+        form = await request.form()
+        envelope_raw = form.get("envelope")
+        from_addr = str(form.get("from") or "")
+        subject = str(form.get("subject") or "")
+        body = str(form.get("text") or "")
+        message_id = str(form.get("Message-Id") or form.get("message_id") or "")
+        if envelope_raw:
+            try:
+                env = json.loads(str(envelope_raw))
+                from_addr = env.get("from") or from_addr
+                to_list = env.get("to") or []
+                if to_list and not message_id:
+                    message_id = f"<envelope:{to_list[0]}:{subject[:80]}>"
+            except Exception:  # noqa: BLE001 — malformed envelope: fall back to fields
+                pass
+    if not from_addr:
+        raise HTTPException(status_code=400, detail="missing sender ('from' field)")
+
+    provided_key = request.query_params.get("key")
+    if not email_app.verify_webhook_key(provided_key):
+        log_action(db, "system", 0, "email_inbound_rejected", actor="webhook", detail="invalid webhook key")
+        db.commit()
+        raise HTTPException(status_code=401, detail="invalid webhook key")
+
+    result, row = email_app.process_inbound(
+        db, message_id=message_id, from_addr=from_addr, subject=subject, body=body
+    )
+    db.commit()
+    return {"status": result["status"], "change_id": result["change_id"], "reply": result["reply"], "inbound_id": row.id}
+
+
+@app.post("/api/integrations/email/sweep")
+def email_sweep(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> dict:
+    """Run one outbound sweep: post-change prompts, digests, Slack fallbacks."""
+    counts = email_app.run_email_sweep(db)
+    db.commit()
+    return counts
 
 
 # ---------- static SPA (single-service deploy) ----------

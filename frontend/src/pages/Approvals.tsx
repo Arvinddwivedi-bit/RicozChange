@@ -98,6 +98,7 @@ export default function Approvals() {
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [showDecided, setShowDecided] = useState(false)
+  const [kindFilter, setKindFilter] = useState<'all' | 'slack' | 'email'>('all')
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
@@ -127,34 +128,42 @@ export default function Approvals() {
     }
   }
 
-  const pending = useMemo(() => (notes ?? []).filter((n) => !n.acted), [notes])
-  const decided = useMemo(() => (notes ?? []).filter((n) => n.acted), [notes])
-  const visible = showDecided ? notes ?? [] : pending
+  const pending = useMemo(() => (notes ?? []).filter((n) => !n.acted && n.kind === 'slack'), [notes])
+  const decided = useMemo(() => (notes ?? []).filter((n) => n.acted && n.kind === 'slack'), [notes])
+  const visible = showDecided ? notes ?? [] : (notes ?? []).filter((n) => !n.acted || n.kind === 'email')
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return visible
+    let rows = kindFilter === 'all' ? visible : visible.filter((n) => n.kind === kindFilter)
+    if (!query.trim()) return rows
     const q = query.toLowerCase()
-    return visible.filter(
+    rows = rows.filter(
       (n) =>
         String(n.change_id).includes(q) ||
         n.channel.toLowerCase().includes(q) ||
-        n.message.text.toLowerCase().includes(q),
+        n.message.text.toLowerCase().includes(q) ||
+        (n.message.subject ?? '').toLowerCase().includes(q),
     )
-  }, [visible, query])
+    return rows
+  }, [visible, query, kindFilter])
 
-  // Approval cards keyed off the message payload (same as before).
-  const cards = filtered.map((n) => {
+  // Slack approval cards keyed off the message payload (same as before).
+  const cards = filtered
+    .filter((n) => n.kind === 'slack')
+    .map((n) => {
     const byType = new Map<string, any>()
-    for (const b of n.message.blocks) byType.set(b.type, b)
+    for (const b of n.message.blocks ?? []) byType.set(b.type, b)
     const context = byType.get('context')?.fields ?? {}
     const whyItems: { label: string; points: number }[] = byType.get('risk_why')?.items ?? []
     const actions = byType.get('actions')?.actions ?? []
     return { n, context, whyItems, actions }
   })
 
+  // Email notifications (digests, prompts, fallbacks) render as compact rows.
+  const emailCards = filtered.filter((n) => n.kind === 'email')
+
   const metrics = useMemo(() => {
     const highRisk = pending.filter((c) => {
-      const ctx = c.message.blocks.find((b) => b.type === 'context')?.fields ?? {}
+      const ctx = c.message.blocks?.find((b) => b.type === 'context')?.fields ?? {}
       const risk = Number(ctx.Risk ?? 0)
       return risk >= 70
     }).length
@@ -226,6 +235,19 @@ export default function Approvals() {
         </span>
         <span className="pill pill-neutral">{metrics.mine} awaiting you</span>
         {metrics.highRisk > 0 && <span className="pill pill-amber"><span className="pill-dot" />{metrics.highRisk} high risk</span>}
+        <div className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-white p-0.5">
+          {(['all', 'slack', 'email'] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setKindFilter(k)}
+              className={`rounded-full px-2.5 py-1 text-[11.5px] font-semibold capitalize transition-colors ${
+                kindFilter === k ? 'bg-navy text-white' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {k}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ---------- metrics ---------- */}
@@ -256,6 +278,33 @@ export default function Approvals() {
           </div>
         )}
 
+        {emailCards.map((n) => (
+          <article key={n.id} className="card px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[13px] font-bold text-slate-500">@</span>
+                <div className="min-w-0">
+                  <div className="truncate text-[14.5px] font-semibold text-navy">{n.message.subject ?? n.message.text}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+                    <span className="font-medium text-slate-600">{n.channel}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>Email notification</span>
+                    {n.sent_at && <><span className="text-slate-300">•</span><span>sent {fmtDate(n.sent_at)}</span></>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="pill pill-blue">Email</span>
+                {n.change_id && (
+                  <Link to={`/changes/${n.change_id}`} className="btn btn-ghost">
+                    Open #{n.change_id}
+                  </Link>
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
+
         {cards.map(({ n, context, whyItems, actions }) => {
           const risk = Number(context.Risk ?? 0)
           const cls = String(context.Class ?? 'normal')
@@ -282,7 +331,7 @@ export default function Approvals() {
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-slate-500">
                     <span>Submitted by <span className="font-medium text-slate-600">{n.channel}</span></span>
                     <span className="text-slate-300">•</span>
-                    <span>Slack message</span>
+                    <span>{n.sent_at ? `Delivered ${fmtDate(n.sent_at)}` : 'Slack message'}</span>
                     <span className="text-slate-300">•</span>
                     <span>{when}</span>
                   </div>

@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RicozChange — Product PRD</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    color: #1e293b;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    background: #fff;
+  }
+  .page { page-break-after: always; position: relative; padding: 58px 56px 64px; }
+  .page.last { page-break-after: auto; }
+  .foot {
+    position: absolute; bottom: 24px; left: 56px; right: 56px;
+    display: flex; justify-content: space-between;
+    font-size: 8pt; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px;
+  }
+  h1, h2, h3, h4 { font-family: "Segoe UI", Arial, sans-serif; color: #0f1d33; margin: 0; }
+
+  /* ---------- cover ---------- */
+  .cover { background: #0f1d33; color: #fff; display: flex; flex-direction: column; }
+  .cover .band { position: absolute; top: 0; left: 0; right: 0; height: 8px; background: #d4222c; }
+  .cover .top { margin-top: 70px; }
+  .logo { display: inline-flex; align-items: center; justify-content: center;
+          width: 56px; height: 56px; border-radius: 14px; background: #d4222c;
+          color: #fff; font-size: 30px; font-weight: 800; }
+  .brand { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-top: 14px; }
+  .brand b { color: #f2a3ab; font-weight: 800; }
+  .cover .sub { color: #8fa3bd; font-size: 11.5px; margin-top: 4px; letter-spacing: 0.4px; }
+  .cover h1 { color: #fff; font-size: 34px; line-height: 1.15; margin-top: 64px; max-width: 560px; }
+  .cover h1 span { color: #e96b77; }
+  .cover .tag { color: #b7c4d6; font-size: 12.5px; max-width: 480px; margin-top: 18px; }
+  .meta { margin-top: 58px; display: flex; gap: 40px; }
+  .meta div { font-size: 10.5px; color: #8fa3bd; }
+  .meta div b { display: block; color: #fff; font-size: 12.5px; margin-top: 3px; font-weight: 600; }
+  .cover .foot { border-top: 1px solid #24354d; color: #64748b; }
+
+  /* ---------- headings ---------- */
+  .kicker { color: #d4222c; font-size: 8.5pt; font-weight: 700; letter-spacing: 1.6px; margin-bottom: 6px; }
+  h2 { font-size: 17pt; letter-spacing: -0.3px; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; margin-bottom: 14px; }
+  h3 { font-size: 11.5pt; margin: 12px 0 5px; }
+  h4 { font-size: 10.5pt; margin: 12px 0 4px; }
+  p { margin: 6px 0; }
+  .lead { font-size: 11.5pt; color: #334155; }
+  .oneliner {
+    margin: 14px 0; padding: 12px 16px; border-left: 4px solid #d4222c;
+    background: #fdf2f3; border-radius: 0 10px 10px 0; font-size: 11.5pt; color: #0f1d33; font-weight: 600;
+  }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9pt; }
+  th { text-align: left; background: #0f1d33; color: #fff; padding: 6px 10px; font-weight: 600; font-size: 8.2pt;
+       letter-spacing: 0.4px; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e8edf3; vertical-align: top; line-height: 1.45; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  td b { color: #0f1d33; }
+  .ok { color: #15803d; font-weight: 700; }
+  .no { color: #b91c1c; font-weight: 700; }
+
+  /* ---------- workflow diagram ---------- */
+  .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 12px 0 4px; }
+  .step { display: flex; gap: 10px; align-items: flex-start; background: #f8fafc;
+          border: 1px solid #e2e8f0; border-radius: 10px; padding: 7px 11px; }
+  .step .n { min-width: 22px; height: 22px; border-radius: 7px; background: #d4222c; color: #fff;
+             font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .step .n.navy { background: #0f1d33; }
+  .step b { color: #0f1d33; font-size: 9.5pt; }
+  .step div { font-size: 8.8pt; color: #475569; line-height: 1.4; }
+  .arrow { text-align: center; color: #cbd5e1; font-size: 9pt; margin: 2px 0 6px; }
+
+  /* ---------- lists & misc ---------- */
+  ul { margin: 5px 0 9px; padding-left: 18px; }
+  li { margin: 2.5px 0; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+  code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 1px 5px; font-size: 8.8pt; }
+  .chip { display: inline-block; background: #fdf2f3; color: #b01b24; border: 1px solid #f9ccd1;
+          border-radius: 999px; padding: 2px 10px; font-size: 8.5pt; font-weight: 700; margin-right: 6px; }
+  .callout { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 14px; margin: 9px 0; font-size: 9.3pt; }
+  .callout.red { background: #fdf2f3; border-color: #f9ccd1; }
+  .cover .note { position: absolute; bottom: 64px; left: 56px; right: 56px; color: #8fa3bd; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="page cover">
+  <div class="band"></div>
+  <div class="top">
+    <div class="logo">R</div>
+    <div class="brand">Ricoz<b>Change</b></div>
+    <div class="sub">AI-NATIVE CHANGE MANAGEMENT</div>
+  </div>
+  <h1>Product PRD —<br><span>everything built so far</span></h1>
+  <div class="tag">A plain-language guide to the product: what it does, how a change flows through
+  it, every feature shipped, and what's coming next.</div>
+  <div class="meta">
+    <div>VERSION<b>v0.2 (MVP + auth + Slack)</b></div>
+    <div>STATUS<b>Live in production</b></div>
+    <div>DATE<b>September 27, 2026</b></div>
+    <div>PREPARED FOR<b>The RicozChange team</b></div>
+  </div>
+  <div class="note">Live demo: https://ricozchange-1y64.onrender.com &nbsp;·&nbsp; Companion docs: docs/PHASE2_PRD.md (next 4 weeks) · docs/ROADMAP.md (next 3 months)</div>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>Confidential — internal team document</span></div>
+</div>
+
+<!-- ================= 1-2 ================= -->
+<div class="page">
+  <div class="kicker">01</div>
+  <h2>What is RicozChange?</h2>
+  <p class="lead">RicozChange is a web app for IT <b>change management</b>: the process a team follows
+  before anything risky touches production — a database migration, a server upgrade, a config change.</p>
+  <p>Instead of approvals buried in email threads and meetings, every change is <b>filed in one place,
+  scored for risk with clear reasons, approved by the right people, and checked afterwards</b> so the
+  team learns from every change.</p>
+  <div class="oneliner">RicozChange tells you <span style="color:#d4222c">how risky</span> a change is,
+  <span style="color:#d4222c">why</span>, <span style="color:#d4222c">what it can break</span>, and gets it
+  <span style="color:#d4222c">approved in minutes instead of days</span>.</div>
+
+  <h3>The problem it solves</h3>
+  <table>
+    <tr><th style="width:50%">The old way</th><th>The RicozChange way</th></tr>
+    <tr><td>Risk is a gut feeling in a meeting</td><td><b>Explainable risk score</b> — every change gets a 0–100 score with line-by-line reasons</td></tr>
+    <tr><td>Two teams change the same system the same night and find out during the incident</td><td>The <b>collision detector</b> warns at filing time</td></tr>
+    <tr><td>CAB meetings review everything, so everything is slow</td><td><b>Low-risk changes auto-approve</b> in one click; only risky ones need people</td></tr>
+    <tr><td>Approvers miss requests in email</td><td>Approvals arrive as <b>Slack DMs with Approve / Reject buttons</b></td></tr>
+    <tr><td>Nobody remembers if the last change actually worked</td><td>The <b>post-change check</b> ("did it work?") feeds a live failure-rate dashboard</td></tr>
+  </table>
+
+  <h3>Who it's for</h3>
+  <ul>
+    <li><b>Engineers</b> — file changes fast, get AI-drafted rollback and test plans, see their change's risk before submitting.</li>
+    <li><b>Approvers / CAB</b> — decide from Slack or the approval inbox with the full "why" inline.</li>
+    <li><b>Managers</b> — freeze calendars, CAB meetings, imports and the failure-rate dashboard.</li>
+    <li><b>Auditors / compliance</b> — an append-only audit log of every action, by whom, when.</li>
+  </ul>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>2 / 8</span></div>
+</div>
+
+<!-- ================= 3 WORKFLOW ================= -->
+<div class="page">
+  <div class="kicker">02</div>
+  <h2>How a change flows through the product</h2>
+  <p class="lead">Seven steps. Every one of them is built and running today.</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><b>Draft</b><br>Engineer files a change — web form, CSV import, or demo seed data.</div></div>
+    <div class="step"><div class="n">2</div><div><b>Score</b><br>Risk engine scores 0–100 and shows every reason: <code>+70 major change</code>, <code>+15 business-critical system</code>, <code>−25 rollback plan</code>.</div></div>
+    <div class="step"><div class="n">3</div><div><b>Check</b><br>Collision detector — overlap with other changes? freeze period? bad timing?</div></div>
+    <div class="step"><div class="n">4</div><div><b>Approve</b><br>Low risk → auto fast-track (one click). High risk → Slack DMs / approval inbox; CAB reviews majors.</div></div>
+    <div class="step"><div class="n">5</div><div><b>Schedule</b><br>Safe-window finder suggests the best slot around freezes and neighbouring changes.</div></div>
+    <div class="step"><div class="n">6</div><div><b>Implement</b><br>Owner runs the change in its window, helped by AI-drafted rollback &amp; test plans.</div></div>
+    <div class="step"><div class="n">7</div><div><b>Learn</b><br>"Did it work?" → success / partial / failed. Results feed the failure-rate dashboard… <b>and future risk scores</b> (same system failed before? the score goes up).</div></div>
+    <div class="step" style="background:#fdf2f3;border-color:#f9ccd1"><div class="n">✓</div><div><b>Every step is audit-logged</b><br>Who did what, when — written once, never edited.</div></div>
+  </div>
+
+  <h3>What the risk score looks at (all visible, no black box)</h3>
+  <table>
+    <tr><th style="width:40%">Factor</th><th>Example line item the approver sees</th></tr>
+    <tr><td>Change class</td><td><b>+70</b> · Base score: major change</td></tr>
+    <tr><td>System criticality</td><td><b>+15</b> · payments-db is business-critical (tier-0)</td></tr>
+    <tr><td>History of that system</td><td><b>+10</b> · 3 incidents on payments-db last quarter</td></tr>
+    <tr><td>Rollback plan present?</td><td><b>−25</b> · Rollback plan attached</td></tr>
+    <tr><td>Timing &amp; freeze windows</td><td><b>+20</b> · Window overlaps a freeze period</td></tr>
+    <tr><td>Other changes in the window</td><td><b>+10</b> · Collides with change #4 on orders-api</td></tr>
+  </table>
+  <div class="callout red"><b>The differentiator in one line:</b> every competitor shows a number.
+  RicozChange shows the number <b>and every reason behind it</b> — in the app and inside every Slack approval.</div>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>3 / 8</span></div>
+</div>
+
+<!-- ================= 4 FEATURES A ================= -->
+<div class="page">
+  <div class="kicker">03</div>
+  <h2>What's built — the core workflow</h2>
+  <table>
+    <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:22%">Where</th></tr>
+    <tr><td><b>Change requests</b></td><td>Create, classify (standard / normal / major / emergency), schedule a window, submit, implement, complete.</td><td>Changes page</td></tr>
+    <tr><td><b>Explainable risk score</b></td><td>0–100 score where every point has a reason. The product's core differentiator.</td><td>Change detail → "Why this score"</td></tr>
+    <tr><td><b>Collision detector</b></td><td>Warns when another change touches the same system in the same window.</td><td>Change detail + Simulator</td></tr>
+    <tr><td><b>Freeze calendar</b></td><td>Blocked periods (financial close, holidays) — changes landing there are rejected or flagged.</td><td>Freezes page</td></tr>
+    <tr><td><b>Safe-window finder</b></td><td>Suggests the best slots, avoiding freezes and neighbouring changes.</td><td>Change form</td></tr>
+    <tr><td><b>Auto fast-track</b></td><td>Standard changes under score 25 approve in one click — no meeting.</td><td>Any standard change</td></tr>
+    <tr><td><b>Post-change check</b></td><td>After the window: "did it work?" → success / partial / failed.</td><td>Change detail</td></tr>
+    <tr><td><b>CFR dashboard</b></td><td>Live failure-rate KPI plus 8-week trend chart.</td><td>Dashboard</td></tr>
+    <tr><td><b>CSV import</b></td><td>Bring your existing change backlog — kills switching cost.</td><td>Changes page</td></tr>
+  </table>
+
+  <h3>Approvals &amp; CAB</h3>
+  <table>
+    <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:22%">Where</th></tr>
+    <tr><td><b>Approval inbox</b></td><td>All pending approvals with score, window, systems, risk reasons and one-click decisions.</td><td>Approvals page</td></tr>
+    <tr><td><b>Real Slack approvals</b></td><td>OAuth install → approvers get <b>real DMs</b> with the full "why". Approve / Reject buttons in Slack resolve the change; double-click-safe, signature-verified.</td><td>Slack workspace · Integrations page</td></tr>
+    <tr><td><b>Slack demo outbox</b></td><td>Renders the exact message payload — source of truth when Slack isn't connected.</td><td>Approvals page</td></tr>
+    <tr><td><b>CAB meetings</b></td><td>Schedule meetings, build agendas, vote, record decisions — with an outcomes donut chart.</td><td>CAB page</td></tr>
+    <tr><td><b>Any-of policy</b></td><td>The change is approved when <b>any assigned approver</b> decides; everyone else's requests auto-close. No chasing people.</td><td>Everywhere</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>4 / 8</span></div>
+</div>
+
+<!-- ================= 4 FEATURES B ================= -->
+<div class="page">
+  <div class="kicker">04</div>
+  <h2>What's built — risk tools, trust &amp; the UI</h2>
+  <h3>Understanding risk (the "wow" features)</h3>
+  <table>
+    <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:22%">Where</th></tr>
+    <tr><td><b>Change Simulator</b></td><td>Drag sliders (type, window, systems…) and watch score, collisions and blast radius react <b>live</b>. The best demo in the product.</td><td>Simulator page</td></tr>
+    <tr><td><b>Blast-radius map</b></td><td>Interactive dependency graph — a change lights up everything it can take down.</td><td>Blast radius page + every change detail</td></tr>
+    <tr><td><b>AI-drafted plans</b></td><td>Claude drafts the rollback plan, test checklist and stakeholder comms from the change details. <b>Human-approved, never auto-applied.</b></td><td>Change detail → "AI drafting"</td></tr>
+    <tr><td><b>Dashboard charts</b></td><td>Change volume (stacked bars by class), failure-rate trend line, class-mix donut, most-changed systems heat bars.</td><td>Dashboard</td></tr>
+  </table>
+
+  <h3>Trust &amp; admin</h3>
+  <table>
+    <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:22%">Where</th></tr>
+    <tr><td><b>Audit log</b></td><td>Append-only trail: who did what, when — searchable, with a 14-day activity sparkline. Entries are written once and never edited.</td><td>Audit log page</td></tr>
+    <tr><td><b>Real sign-in (Clerk)</b></td><td>Google / email login. First sign-in with an <code>ADMIN_EMAILS</code> email auto-creates your admin account, audited as <code>user_provisioned</code>.</td><td>Every page</td></tr>
+    <tr><td><b>Roles</b></td><td>Engineer / approver / manager / admin — enforced on the <b>server</b>, not just hidden in the UI.</td><td>Everywhere</td></tr>
+    <tr><td><b>Integrations page</b></td><td>Live status of Slack and sign-in, plus the Slack install button.</td><td>Integrations page</td></tr>
+  </table>
+
+  <h3>The UI today</h3>
+  <p>Eleven pages in the Ricoz brand — red <code>#d4222c</code> accents, deep-navy ink, a clean
+  enterprise look. Navigation is grouped the way a real product's sidebar is:</p>
+  <table>
+    <tr><th style="width:18%">Group</th><th>Pages</th></tr>
+    <tr><td><b>Operate</b></td><td>Dashboard · Changes · Approvals · CAB</td></tr>
+    <tr><td><b>Plan</b></td><td>Simulator · Blast radius · Freezes</td></tr>
+    <tr><td><b>Trust</b></td><td>Audit log · Integrations</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>5 / 8</span></div>
+</div>
+
+<!-- ================= 5-6 ================= -->
+<div class="page">
+  <div class="kicker">05</div>
+  <h2>Rules the app enforces &amp; who can do what</h2>
+  <h3>Hard rules (all covered by automated tests)</h3>
+  <ul>
+    <li>You can <b>never approve your own change</b>.</li>
+    <li>Engineers can create and submit changes but <b>cannot approve anything</b> — the server returns 403 and logs the attempt.</li>
+    <li>Every action lands in the audit log with a real user identity — <b>denials included</b>.</li>
+    <li>Slack button clicks are <b>idempotent</b>; invalid signatures get 401 plus an audit entry.</li>
+    <li>Slack down? Delivery failures are recorded and <b>web approvals keep working</b>.</li>
+    <li>No rollback plan? The score says so — and it costs points.</li>
+  </ul>
+
+  <h3>Roles &amp; permissions (enforced server-side)</h3>
+  <table>
+    <tr><th>Action</th><th style="width:13%">Engineer</th><th style="width:13%">Approver</th><th style="width:13%">Manager</th><th style="width:13%">Admin</th></tr>
+    <tr><td>View dashboards, changes, audit</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+    <tr><td>Create / edit / submit own change</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+    <tr><td>Approve / reject (assigned to them)</td><td class="no">✗</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+    <tr><td>Vote in CAB</td><td class="no">✗</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+    <tr><td>Run CAB, manage freezes, CSV import</td><td class="no">✗</td><td class="no">✗</td><td class="ok">✓</td><td class="ok">✓</td></tr>
+    <tr><td>Users, roles, settings</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="ok">✓</td></tr>
+  </table>
+
+  <h3>Current status — the honest list</h3>
+  <table>
+    <tr><th style="width:34%">Area</th><th>State</th></tr>
+    <tr><td>Core workflow + risk engine + charts</td><td><span class="ok">✓ Live</span> — public demo, 53 backend tests passing</td></tr>
+    <tr><td>Real sign-in &amp; roles</td><td><span class="ok">✓ Live</span> — Clerk, gated demo, auto-provisioned admin</td></tr>
+    <tr><td>Slack approvals</td><td><span class="ok">✓ Live</span> — OAuth install, DMs with "why", signed callbacks</td></tr>
+    <tr><td>Deploy</td><td><span class="ok">✓ Live</span> — Render auto-deploys every push to <code>main</code></td></tr>
+    <tr><td>Email-to-change</td><td><span class="no">✗ Not built</span> — first item of Phase 2</td></tr>
+    <tr><td>CI pipeline &amp; error tracking</td><td><span class="no">✗ Not built</span> — Phase 2, week 4</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>6 / 8</span></div>
+</div>
+
+<!-- ================= 7 TECH ================= -->
+<div class="page">
+  <div class="kicker">06</div>
+  <h2>The tech, in plain words</h2>
+  <table>
+    <tr><th style="width:18%">Piece</th><th style="width:30%">What we use</th><th>Why</th></tr>
+    <tr><td><b>UI</b></td><td>React + TypeScript + Tailwind — 11 pages</td><td>Fast to build, easy to hire for, looks like a real product.</td></tr>
+    <tr><td><b>API</b></td><td>FastAPI (Python), 53 automated tests</td><td>The brain: scoring, workflow, permissions.</td></tr>
+    <tr><td><b>Database</b></td><td>SQLite locally → managed Postgres on Render</td><td>Free to start, production-grade when it matters.</td></tr>
+    <tr><td><b>Sign-in</b></td><td>Clerk (Google / email)</td><td>Don't build auth yourself; SSO-ready later.</td></tr>
+    <tr><td><b>Chat</b></td><td>Slack app — OAuth + signed callbacks</td><td>Approvals where approvers already are.</td></tr>
+    <tr><td><b>AI</b></td><td>Claude API (optional)</td><td>Drafts plans; falls back to templates without a key.</td></tr>
+    <tr><td><b>Hosting</b></td><td>Render, auto-deploy on push to <code>main</code></td><td>Zero-ops demo your manager can open anywhere.</td></tr>
+  </table>
+
+  <h3>Where things live in the repo</h3>
+  <table>
+    <tr><th style="width:40%">Path</th><th>What's inside</th></tr>
+    <tr><td><code>backend/ricozchange/risk_engine.py</code></td><td>Scoring, collisions, freeze handling, safe-window finder</td></tr>
+    <tr><td><code>backend/ricozchange/services.py</code></td><td>Workflow state machine, approvals, CAB, seeding, CSV import</td></tr>
+    <tr><td><code>backend/ricozchange/models.py</code></td><td>The 15 database tables (Change, System, Approval, CAB, Freeze, Audit…)</td></tr>
+    <tr><td><code>backend/ricozchange/auth.py</code></td><td>Clerk JWT verification + demo-mode fallback</td></tr>
+    <tr><td><code>backend/ricozchange/slack_app.py</code> · <code>notifications.py</code></td><td>Real Slack transport + the message payloads</td></tr>
+    <tr><td><code>backend/ricozchange/main.py</code> · <code>backend/tests/</code></td><td>All API routes · 53 end-to-end tests</td></tr>
+    <tr><td><code>frontend/src/pages/</code></td><td>One file per page (11 pages)</td></tr>
+  </table>
+
+  <h3>Run it locally (5 minutes)</h3>
+  <div class="cols2">
+    <div class="callout"><b>1 · Backend</b><br><code>cd backend</code><br>
+      <code>python -m venv .venv</code><br>
+      <code>.venv\Scripts\pip install -r requirements.txt</code><br>
+      <code>.venv\Scripts\python -m uvicorn ricozchange.main:app --port 8000</code></div>
+    <div class="callout"><b>2 · Frontend</b><br><code>cd frontend</code><br>
+      <code>npm install</code><br><code>npm run dev</code><br>
+      <b style="display:block;margin-top:6px">3 · Open http://localhost:5173</b>
+      <span style="color:#64748b">The database seeds itself with demo data — including one risky pending change ready to approve.</span></div>
+  </div>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>7 / 8</span></div>
+</div>
+
+<!-- ================= 8-9 ================= -->
+<div class="page last">
+  <div class="kicker">07</div>
+  <h2>What's next &amp; how to talk about the product</h2>
+
+  <h3>The version ladder</h3>
+  <table>
+    <tr><th style="width:16%">Version</th><th style="width:22%">Theme</th><th>What gets added</th></tr>
+    <tr><td><b>v0.2</b><br><span style="color:#64748b">now</span></td><td>"Real team"</td><td><span class="ok">Shipped:</span> real sign-in &amp; roles, real Slack approvals, branded UI with charts. <b>Remaining in Phase 2:</b> email-to-change, CI + E2E tests, error tracking.</td></tr>
+    <tr><td><b>v0.3</b><br><span style="color:#64748b">~4 weeks</span></td><td>"Operations"</td><td>Deploys automatically become changes (GitHub webhook), calendar sync, Microsoft Teams, DORA-style analytics.</td></tr>
+    <tr><td><b>v1.0</b><br><span style="color:#64748b">~3 months</span></td><td>"Pilot — sellable"</td><td>Compliance pack (audit export, CAB minutes), billing &amp; seats, SSO hardening, onboarding wizard.</td></tr>
+  </table>
+
+  <h3>The 3-minute demo script (use this with your manager)</h3>
+  <ol style="margin:6px 0 10px;padding-left:18px">
+    <li><b>Dashboard</b> — failure-rate KPI, volume and trend charts.</li>
+    <li>Open change <b>#7</b> — walk the "Why this score" panel line by line.</li>
+    <li><b>Approvals</b> — approve it with one click (or from a real Slack DM).</li>
+    <li><b>Simulator</b> — drag a slider; watch score, collisions and blast radius react live.</li>
+    <li>Back on the change: implement → complete → post-change check → <b>dashboard CFR updates</b>.</li>
+  </ol>
+
+  <h3>Two-sentence pitches</h3>
+  <div class="callout red"><b>To an engineer:</b> "You file the change once; RicozChange tells you the risk,
+  warns about collisions, drafts your rollback plan, and asks you afterwards whether it worked."</div>
+  <div class="callout red"><b>To a manager:</b> "Every change is scored with reasons, risky ones get real
+  approvals in Slack, low-risk ones stop wasting CAB time — and you finally get a real failure-rate number."</div>
+
+  <h3>Glossary (for non-ITIL folks)</h3>
+  <table>
+    <tr><th style="width:24%">Term</th><th>Plain meaning</th></tr>
+    <tr><td style="width:24%"><b>CAB</b></td><td>Change Advisory Board — the group that reviews risky changes.</td><td style="width:24%"><b>CFR</b></td><td>Change Failure Rate — % of changes that caused a problem. Lower is better; tracked live on the dashboard.</td></tr>
+    <tr><td><b>Change window</b></td><td>The approved time slot to do the work.</td><td><b>Freeze</b></td><td>A period when changes are blocked (financial close, holidays).</td></tr>
+    <tr><td><b>Blast radius</b></td><td>Everything that breaks if this change goes wrong.</td><td><b>Tier-0</b></td><td>Business-critical system (payments, checkout). Touching one costs risk points.</td></tr>
+    <tr><td><b>Rollback plan</b></td><td>The pre-written "undo" steps if the change fails.</td><td><b>Fast-track</b></td><td>Auto-approval for pre-approved, low-risk standard changes.</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · Product PRD</span><span>8 / 8</span></div>
+</div>
+
+</body>
+</html>

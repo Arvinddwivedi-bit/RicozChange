@@ -14,6 +14,8 @@ AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite f
 | **AI-drafted rollback / test / comms plans** — human-approved, never auto-applied | Detail page → "AI drafting" |
 | **Slack-style approvals** — approve with the "why" inline | `/slack` demo outbox |
 | **Real Slack integration** (phase 2) — OAuth install, DMs with the "why", approve/reject buttons in Slack, signed callbacks | Slack setup below |
+| **Email-to-change** (phase 2) — file a change by emailing the mailbox; parsed, scored, filed as a draft, auto-reply with the score + "why" | Email setup below · Integrations page simulator |
+| **Email sweeps** — post-change "did it work?" prompts, daily pending-approval digests, fallbacks when Slack delivery fails | `POST /api/integrations/email/sweep` · Integrations page |
 | **Post-change check + CFR dashboard** — "did it work?" feeds the failure rate | Dashboard KPI |
 
 ## Quickstart (no API keys needed)
@@ -88,6 +90,31 @@ resolve the change through the same any-of policy as the web app.
 Behavioral guarantees (all tested): invalid signature → 401 + audit entry; Slack unreachable →
 delivery error recorded on the outbox row, web approvals keep working; replayed button clicks →
 idempotent; unlinked actor → ephemeral "link your account" hint.
+
+## Email-to-change (phase 2, week 3)
+
+An engineer emails the mailbox with **subject = change title** and simple keyword lines in the body:
+
+```
+systems: payments-db, orders-api
+window: 2026-10-01 22:00 - 23:30
+type: major
+rollback: restore snapshot pg-14 and repoint the connection string
+```
+
+The pipeline parses it, resolves systems (unknown ones reject the email with a helpful reply —
+never a guess), scores the risk, files a **DRAFT** (never auto-submits), records an audit row and
+replies with the score and the full "why". Safety rules: the same `Message-ID` never files twice,
+sender domains can be allowlisted (`EMAIL_ALLOWED_DOMAINS`), the webhook is signature-verified
+(`EMAIL_WEBHOOK_KEY`), and **inbound email can never approve anything**.
+
+Setup (all optional — without it, use the simulator on the Integrations page):
+
+1. SendGrid → Inbound Parse → POST to `https://<host>/api/integrations/email/inbound?key=<EMAIL_WEBHOOK_KEY>`.
+2. Set `EMAIL_WEBHOOK_KEY` (any random string) and `EMAIL_ALLOWED_DOMAINS` (e.g. `yourcompany.com`) on the host.
+3. Outbound sweeps (post-change prompts, daily approval digests, Slack-failure fallbacks) run on
+   demand via `POST /api/integrations/email/sweep` or the button on the Integrations page;
+   emails land in the auditable outbox (wire real SMTP/SendGrid sending later by swapping one function).
 
 ## Configuration (all optional)
 
