@@ -20,6 +20,7 @@ from . import config, db as dbmod
 from . import services
 from . import auth as auth_mod
 from . import email_app
+from . import github_app
 from . import slack_app
 from .rate_limit import rate_limit, webhook_limiter, simulate_limiter, sweep_limiter
 from fastapi.security import HTTPAuthorizationCredentials
@@ -33,8 +34,11 @@ from .models import (
     CABMeeting,
     Change,
     DependencyEdge,
+    DeployLink,
     EmailInbound,
     FreezeWindow,
+    GitHubConnection,
+    GitHubDelivery,
     Notification,
     RiskFactor,
     StandardChangeTemplate,
@@ -1108,6 +1112,270 @@ def email_sweep(db: Session = Depends(dbmod.get_db), actor: User = Depends(requi
     counts = email_app.run_email_sweep(db)
     db.commit()
     return counts
+
+
+# ---------- GitHub deploy-as-change (v0.3, week 1) ----------
+
+class GitHubConnectionIn(BaseModel):
+    repo: str = Field(min_length=3, max_length=200)  # "owner/name"
+    label: str = ""
+    default_system_keys: list[str] = Field(default_factory=list)
+    auto_submit: bool = False
+    webhook_secret: str = ""
+
+
+def _serialize_connection(c: GitHubConnection) -> dict:
+    return {
+        "id": c.id,
+        "repo": c.repo,
+        "label": c.label,
+        "default_system_keys": c.default_system_keys or [],
+        "auto_submit": c.auto_submit,
+        "has_own_secret": bool(c.webhook_secret),
+        "created_at": c.created_at.isoformat(),
+    }
+
+
+def _serialize_delivery(d: GitHubDelivery) -> dict:
+    return {
+        "id": d.id,
+        "delivery_id": d.delivery_id,
+        "event": d.event,
+        "repo": d.repo,
+        "action": d.action,
+        "status": d.status,
+        "detail": d.detail,
+        "change_id": d.change_id,
+        "received_at": d.received_at.isoformat(),
+    }
+
+
+@app.get("/api/integrations/github/status")
+def github_status(db: Session = Depends(dbmod.get_db)) -> dict:
+    """Connection state for the Integrations page."""
+    conns = db.execute(select(GitHubConnection).order_by(GitHubConnection.id)).scalars().all()
+    return {
+        "configured": bool(config.GITHUB_WEBHOOK_SECRET) or len(conns) > 0,
+        "webhook_url": f"{config.PUBLIC_BASE_URL}/api/integrations/github/webhook",
+        "global_secret_set": bool(config.GITHUB_WEBHOOK_SECRET),
+        "connections": [_serialize_connection(c) for c in conns],
+    }
+
+
+@app.get("/api/integrations/github/deliveries")
+def github_deliveries(
+    limit: int = Query(default=25, le=100),
+    db: Session = Depends(dbmod.get_db),
+    actor: User = Depends(require_role("admin", "manager")),
+) -> dict:
+    rows = db.execute(
+        select(GitHubDelivery).order_by(GitHubDelivery.id.desc()).limit(limit)
+    ).scalars().all()
+    return {"items": [_serialize_delivery(d) for d in rows]}
+
+
+@app.post("/api/integrations/github/connections", status_code=201)
+def create_github_connection(
+    payload: GitHubConnectionIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))
+) -> dict:
+    repo = payload.repo.strip()
+    if "/" not in repo or repo.count("/") != 1 or any(p.strip() == "" for p in repo.split("/")):
+        raise HTTPException(status_code=422, detail="repo must look like 'owner/name'")
+    if payload.default_system_keys:
+        found = db.execute(
+            select(SystemNode).where(SystemNode.key.in_([k.strip().lower() for k in payload.default_system_keys]))
+        ).scalars().all()
+        if len(found) != len(set(k.strip().lower() for k in payload.default_system_keys)):
+            raise HTTPException(status_code=422, detail="one or more default_system_keys do not exist")
+    exists = db.execute(select(GitHubConnection).where(GitHubConnection.repo == repo)).scalars().first()
+    if exists:
+        raise HTTPException(status_code=409, detail=f"{repo} is already connected")
+    conn = GitHubConnection(
+        repo=repo,
+        label=payload.label.strip(),
+        default_system_keys=[k.strip().lower() for k in payload.default_system_keys],
+        auto_submit=payload.auto_submit,
+        webhook_secret=payload.webhook_secret.strip(),
+        created_by=actor.id,
+    )
+    db.add(conn)
+    db.flush()
+    log_action(db, "github_connection", conn.id, "created", actor=actor.name, detail=repo)
+    db.commit()
+    db.refresh(conn)
+    return _serialize_connection(conn)
+
+
+@app.delete("/api/integrations/github/connections/{connection_id}")
+def delete_github_connection(
+    connection_id: int, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))
+) -> dict:
+    conn = db.get(GitHubConnection, connection_id)
+    if conn is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    log_action(db, "github_connection", conn.id, "deleted", actor=actor.name, detail=conn.repo)
+    db.delete(conn)
+    db.commit()
+    return {"deleted": connection_id}
+
+
+@app.post("/api/integrations/github/simulate")
+def github_simulate(
+    payload: dict, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))
+) -> dict:
+    """Run the identical event pipeline without GitHub (demos/tests).
+
+    Body: {repo, workflow_name?, environment?, conclusion?, branch?, sha?, login?, email?, auto_submit?}
+    When auto_submit is true the connection row is created on the fly for the demo.
+    """
+    repo = str(payload.get("repo") or "").strip()
+    if not repo:
+        raise HTTPException(status_code=422, detail="repo is required")
+    env = str(payload.get("environment") or "production").strip().lower()
+    wf_name = str(payload.get("workflow_name") or f"deploy {env}")
+    run_id = str(payload.get("run_id") or f"sim-{datetime.utcnow().timestamp()}")
+    delivery_id = str(payload.get("delivery_id") or f"sim-{run_id}")
+
+    if payload.get("auto_submit"):
+        conn = db.execute(select(GitHubConnection).where(GitHubConnection.repo == repo)).scalars().first()
+        if conn is None:
+            systems = [k.strip().lower() for k in (payload.get("system_keys") or ["staging-web"])]
+            db.add(GitHubConnection(
+                repo=repo, label="simulated", default_system_keys=systems,
+                auto_submit=True, created_by=actor.id,
+            ))
+            db.flush()
+
+    built = {
+        "action": "completed",
+        "repository": {"full_name": repo},
+        "sender": {"login": str(payload.get("login") or "")},
+        "workflow_run": {
+            "id": run_id,
+            "name": wf_name,
+            "display_title": f"{wf_name} · {payload.get('branch') or 'main'}",
+            "conclusion": str(payload.get("conclusion") or "success"),
+            "status": "completed",
+            "head_sha": str(payload.get("sha") or ""),
+            "head_branch": str(payload.get("branch") or "main"),
+            "html_url": f"https://github.com/{repo}/actions/runs/{run_id}",
+            "actor": {"email": str(payload.get("email") or "")} if payload.get("email") else {},
+        },
+    }
+    headers = {"x-github-event": "workflow_run"}
+
+    result, row = github_app.process_event(db, delivery_id=delivery_id, headers=headers, payload=built)
+
+    # Outcome loop demo: a failed run immediately records the post-change result.
+    outcome = None
+    if result.get("status") == "created" and str(payload.get("conclusion") or "success") != "success":
+        outcome = github_app.record_deploy_outcome(
+            db, repo=repo, run_id=run_id, conclusion=str(payload.get("conclusion")), evt=None
+        )
+    db.commit()
+    return {**result, "delivery_id": row.delivery_id, "outcome": outcome}
+
+
+@app.post(
+    "/api/integrations/github/webhook",
+    dependencies=[Depends(rate_limit(webhook_limiter, "github"))],
+)
+async def github_webhook(request: Request, db: Session = Depends(dbmod.get_db)) -> object:
+    """GitHub webhook: production deploys become changes; conclusions close outcomes.
+
+    Signature verified per connection (X-Hub-Signature-256, HMAC SHA-256), with
+    GITHUB_WEBHOOK_SECRET as the fallback. Delivery-id idempotent. Unknown repos
+    and irrelevant events are acknowledged as 'ignored' (200) — GitHub retries
+    on non-2xx, and there is nothing to retry here.
+    """
+    body = await request.body()
+    try:
+        payload = json.loads(body or b"{}")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="invalid JSON payload")
+
+    event = request.headers.get("x-github-event", "")
+    delivery_id = request.headers.get("x-github-delivery", "")
+    repo = str((payload.get("repository") or {}).get("full_name") or "")
+    sig = request.headers.get("x-hub-signature-256")
+
+    if event != "ping" and not delivery_id:
+        raise HTTPException(status_code=400, detail="missing X-GitHub-Delivery header")
+
+    # Secret: per-connection when the repo is connected, else the global fallback.
+    conn = db.execute(
+        select(GitHubConnection).where(func.lower(GitHubConnection.repo) == repo.lower())
+    ).scalars().first() if repo else None
+    secret = github_app.connection_secret(conn) if conn else config.GITHUB_WEBHOOK_SECRET
+    if not github_app.verify_signature(secret, body, sig):
+        log_action(db, "system", 0, "github_webhook_rejected", actor="github", detail=f"invalid signature for {repo or 'unknown repo'}")
+        db.commit()
+        raise HTTPException(status_code=401, detail="invalid signature")
+
+    if event == "ping":
+        return {"status": "ping-ok"}
+
+    # Idempotency FIRST: a redelivered event must never record an outcome twice.
+    seen = db.execute(
+        select(GitHubDelivery).where(GitHubDelivery.delivery_id == delivery_id)
+    ).scalars().first()
+    if seen:
+        return {"status": "duplicate", "change_id": seen.change_id, "detail": "delivery already processed"}
+
+    # Outcome loop: workflow_run carries the conclusion; map it onto the linked change.
+    if event == "workflow_run" and str(payload.get("action") or "") == "completed":
+        wr = payload.get("workflow_run") or {}
+        outcome = github_app.record_deploy_outcome(
+            db,
+            repo=repo,
+            run_id=str(wr.get("id") or ""),
+            conclusion=str(wr.get("conclusion") or ""),
+        )
+        if outcome.get("status") == "recorded":
+            db.add(GitHubDelivery(
+                delivery_id=delivery_id, event=event, repo=repo, action="completed",
+                status="processed", detail=f"outcome recorded: {outcome.get('result')}",
+                change_id=outcome.get("change_id"),
+            ))
+            db.commit()
+            return {**outcome, "status": "outcome-recorded"}
+        if outcome.get("status") == "already_recorded":
+            db.commit()
+            return {"status": "duplicate", "detail": "outcome already recorded for this run"}
+
+    try:
+        result, row = github_app.process_event(db, delivery_id=delivery_id, headers=request.headers, payload=payload)
+    except Exception:  # noqa: BLE001 — never 500 to GitHub; log and ack
+        logging.getLogger("rico.github").exception("github webhook processing failed")
+        db.rollback()
+        return {"status": "error-acked"}
+    db.commit()
+    return {
+        "status": result["status"],
+        "change_id": result.get("change_id"),
+        "detail": result.get("detail", ""),
+        "auto_submitted": result.get("auto_submitted"),
+    }
+
+
+@app.post("/api/users/{user_id}/github-link")
+def link_github(
+    user_id: int, payload: SlackLinkIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin"))
+) -> dict:
+    """Admin maps a GitHub login to a user so deploy changes get the right owner."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if payload.slack_id:
+        clash = db.execute(
+            select(User).where(User.github_login == payload.slack_id, User.id != user.id)
+        ).scalars().first()
+        if clash:
+            raise HTTPException(status_code=409, detail=f"github_login already mapped to {clash.name}")
+    user.github_login = payload.slack_id or None
+    log_action(db, "user", user.id, "github_link", actor=actor.name, detail=payload.slack_id or "unmapped")
+    db.commit()
+    return {"id": user.id, "name": user.name, "github_login": user.github_login}
 
 
 # ---------- static SPA (single-service deploy) ----------

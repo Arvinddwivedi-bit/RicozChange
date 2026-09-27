@@ -34,6 +34,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(40), default="engineer")  # admin|manager|approver|engineer
     clerk_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     slack_id: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True, index=True)
+    github_login: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -107,6 +108,8 @@ class Change(Base):
     status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
     # draft -> submitted -> approved -> implementing -> completed|failed
     # submitted can be rejected; draft/cancelled paths exist too.
+    # provenance of this change (web form | email | github deploy)
+    source: Mapped[str] = mapped_column(String(20), default="web")
 
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     template_id: Mapped[int | None] = mapped_column(ForeignKey("standard_change_templates.id"), nullable=True)
@@ -257,6 +260,71 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[dict] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+# ---------- GitHub deploy-as-change (v0.3, week 1) ----------
+
+class GitHubConnection(Base):
+    """A connected GitHub repository.
+
+    Production deploy events (workflow_run / deployment) on this repo become
+    change requests: scored against `default_system_keys`, filed as drafts (or
+    auto-submitted when auto_submit is on and the score is low enough for the
+    fast-track), with the deployer mapped by GitHub login or email.
+    """
+
+    __tablename__ = "github_connections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repo: Mapped[str] = mapped_column(String(200), unique=True, index=True)  # "owner/name"
+    label: Mapped[str] = mapped_column(String(120), default="")
+    default_system_keys: Mapped[list] = mapped_column(JSON, default=list)
+    default_env: Mapped[str] = mapped_column(String(40), default="production")
+    auto_submit: Mapped[bool] = mapped_column(default=False)
+    webhook_secret: Mapped[str] = mapped_column(String(200), default="")  # per-connection; falls back to GITHUB_WEBHOOK_SECRET
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class GitHubDelivery(Base):
+    """Append-only webhook delivery audit + idempotency guard.
+
+    GitHub retries deliveries; the unique delivery_id guarantees an event is
+    processed exactly once (same pattern as the email Message-ID dedupe).
+    """
+
+    __tablename__ = "github_deliveries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    delivery_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    event: Mapped[str] = mapped_column(String(60), default="")
+    repo: Mapped[str] = mapped_column(String(200), default="", index=True)
+    action: Mapped[str] = mapped_column(String(60), default="")
+    status: Mapped[str] = mapped_column(String(20), default="processed")  # processed|ignored|duplicate|rejected|error
+    detail: Mapped[str] = mapped_column(String(300), default="")
+    change_id: Mapped[int | None] = mapped_column(ForeignKey("changes.id"), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class DeployLink(Base):
+    """Link between a change and a GitHub deploy run (both directions).
+
+    Created with the change; the workflow_run conclusion lands later and closes
+    the outcome loop via record_post_change.
+    """
+
+    __tablename__ = "deploy_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    change_id: Mapped[int] = mapped_column(ForeignKey("changes.id"), index=True)
+    repo: Mapped[str] = mapped_column(String(200), index=True)
+    run_id: Mapped[str] = mapped_column(String(40), index=True)
+    run_url: Mapped[str] = mapped_column(String(500), default="")
+    head_sha: Mapped[str] = mapped_column(String(60), default="")
+    branch: Mapped[str] = mapped_column(String(120), default="")
+    environment: Mapped[str] = mapped_column(String(40), default="production")
+    conclusion: Mapped[str | None] = mapped_column(String(30), nullable=True)  # success|failure|cancelled|...
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class EmailInbound(Base):

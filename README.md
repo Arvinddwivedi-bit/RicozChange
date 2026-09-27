@@ -16,6 +16,7 @@ AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite f
 | **Real Slack integration** (phase 2) — OAuth install, DMs with the "why", approve/reject buttons in Slack, signed callbacks | Slack setup below |
 | **Email-to-change** (phase 2) — file a change by emailing the mailbox; parsed, scored, filed as a draft, auto-reply with the score + "why" | Email setup below · Integrations page simulator |
 | **Email sweeps** — post-change "did it work?" prompts, daily pending-approval digests, fallbacks when Slack delivery fails | `POST /api/integrations/email/sweep` · Integrations page |
+| **Deploy-as-change** (v0.3) — a production deploy on a connected repo becomes a scored, collision-checked change; deploy status records the outcome | GitHub setup below · Integrations page |
 | **Post-change check + CFR dashboard** — "did it work?" feeds the failure rate | Dashboard KPI |
 
 ## Quickstart (no API keys needed)
@@ -116,6 +117,22 @@ Setup (all optional — without it, use the simulator on the Integrations page):
 3. Outbound sweeps (post-change prompts, daily approval digests, Slack-failure fallbacks) run on
    demand via `POST /api/integrations/email/sweep` or the button on the Integrations page;
    emails land in the auditable outbox (wire real SMTP/SendGrid sending later by swapping one function).
+
+## Deploy-as-change (v0.3, week 1)
+
+Connect a repo on the Integrations page (repo, affected systems, optional auto-submit), then add a
+GitHub webhook (*Settings → Webhooks*):
+
+- **URL:** `https://<host>/api/integrations/github/webhook`
+- **Secret:** the connection's own secret, or the global `GITHUB_WEBHOOK_SECRET` env var
+- **Events:** *Workflow runs* (a `deploy production` workflow) or *Deployments*
+
+A completed production deploy creates a scored draft change with the run linked; with auto-submit
+on, risky deploys go to the same Slack/email approval flow as hand-filed changes. When the run
+completes, its conclusion (`success`/`failure`) is recorded as the post-change result — the "did it
+work?" loop closes itself. Delivery-id idempotency means GitHub retries never duplicate changes.
+
+Use the **simulate** form on the Integrations page to see the pipeline without GitHub.
 
 ## Configuration (all optional)
 

@@ -70,6 +70,10 @@ EMAIL_ALLOWED_DOMAINS = {
 # From address used on outbound notification emails (digests, prompts, fallbacks).
 EMAIL_FROM_ADDR = os.getenv("EMAIL_FROM_ADDR", "changes@ricozchange.dev")
 
+# GitHub deploy-as-change (v0.3, week 1). Optional; empty = integration off.
+# Fallback webhook secret for repos without a per-connection secret.
+GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+
 # Claude API for AI drafting. Without a key, template-based drafting is used.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")

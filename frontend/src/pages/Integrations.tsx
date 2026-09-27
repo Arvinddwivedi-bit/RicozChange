@@ -24,6 +24,34 @@ interface InboundRow {
   received_at: string
 }
 
+interface GitHubConn {
+  id: number
+  repo: string
+  label: string
+  default_system_keys: string[]
+  auto_submit: boolean
+  has_own_secret: boolean
+}
+
+interface GitHubStatus {
+  configured: boolean
+  webhook_url: string
+  global_secret_set: boolean
+  connections: GitHubConn[]
+}
+
+interface GHDeliveryRow {
+  id: number
+  delivery_id: string
+  event: string
+  repo: string
+  action: string
+  status: 'processed' | 'ignored' | 'duplicate' | 'rejected' | 'error'
+  detail: string
+  change_id: number | null
+  received_at: string
+}
+
 function Toggle({ on }: { on: boolean }) {
   return (
     <span
@@ -50,12 +78,27 @@ export default function Integrations() {
   const [simError, setSimError] = useState<string | null>(null)
   const [sweepBusy, setSweepBusy] = useState(false)
   const [sweepInfo, setSweepInfo] = useState<{ post_change_prompts: number; digests: number; slack_fallbacks: number } | null>(null)
+  const [gh, setGh] = useState<GitHubStatus | null>(null)
+  const [ghDeliveries, setGhDeliveries] = useState<GHDeliveryRow[]>([])
+  const [ghRepo, setGhRepo] = useState('')
+  const [ghSystems, setGhSystems] = useState('staging-web')
+  const [ghAutoSubmit, setGhAutoSubmit] = useState(false)
+  const [ghBusy, setGhBusy] = useState(false)
+  const [ghError, setGhError] = useState<string | null>(null)
+  const [sim2Repo, setSim2Repo] = useState('acme/checkout')
+  const [sim2Wf, setSim2Wf] = useState('deploy production')
+  const [sim2Conclusion, setSim2Conclusion] = useState<'success' | 'failure'>('success')
+  const [sim2Login, setSim2Login] = useState('')
+  const [sim2Busy, setSim2Busy] = useState(false)
+  const [sim2Result, setSim2Result] = useState<{ change_id?: number; status: string; detail?: string } | null>(null)
 
   useEffect(() => {
     api<SlackStatus>('/api/integrations/slack/status').then(setSlack).catch(() => setSlack({ connected: false }))
     api<{ auth_mode: string }>('/api/auth/me').then((r) => setAuthMode(r.auth_mode)).catch(() => setAuthMode('unknown'))
     api<EmailStatus>('/api/integrations/email/status').then(setEmail).catch(() => setEmail(null))
     api<{ items: InboundRow[] }>('/api/integrations/email/inbound').then((r) => setInbound(r.items)).catch(() => setInbound([]))
+    api<GitHubStatus>('/api/integrations/github/status').then(setGh).catch(() => setGh(null))
+    api<{ items: GHDeliveryRow[] }>('/api/integrations/github/deliveries').then((r) => setGhDeliveries(r.items)).catch(() => setGhDeliveries([]))
   }, [])
 
   async function runSimulate() {
@@ -86,11 +129,162 @@ export default function Integrations() {
 
   const emailMode = email !== null
 
+  async function loadGh() {
+    api<GitHubStatus>('/api/integrations/github/status').then(setGh).catch(() => {})
+    api<{ items: GHDeliveryRow[] }>('/api/integrations/github/deliveries').then((r) => setGhDeliveries(r.items)).catch(() => {})
+  }
+
+  async function connectRepo() {
+    setGhBusy(true); setGhError(null)
+    try {
+      await api('/api/integrations/github/connections', {
+        method: 'POST',
+        body: JSON.stringify({
+          repo: ghRepo.trim(),
+          default_system_keys: ghSystems.split(',').map((s) => s.trim()).filter(Boolean),
+          auto_submit: ghAutoSubmit,
+        }),
+      })
+      setGhRepo('')
+      await loadGh()
+    } catch (e) {
+      setGhError(String(e).replace('Error: ', ''))
+    } finally {
+      setGhBusy(false)
+    }
+  }
+
+  async function removeConn(id: number) {
+    await api(`/api/integrations/github/connections/${id}`, { method: 'DELETE' }).catch(() => {})
+    await loadGh()
+  }
+
+  async function simulateDeploy() {
+    setSim2Busy(true); setSim2Result(null)
+    try {
+      const r = await api<{ status: string; change_id?: number; detail?: string }>('/api/integrations/github/simulate', {
+        method: 'POST',
+        body: JSON.stringify({
+          repo: sim2Repo.trim(), workflow_name: sim2Wf.trim(), conclusion: sim2Conclusion,
+          login: sim2Login.trim(), auto_submit: true, system_keys: ['staging-web'],
+        }),
+      })
+      setSim2Result(r)
+      await loadGh()
+    } finally {
+      setSim2Busy(false)
+    }
+  }
+
   return (
     <div className="p-8 max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Integrations</h1>
         <p className="text-sm text-slate-500">Live connections that carry RicozChange into your team's daily tools.</p>
+      </div>
+
+      <div className="card p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-[#111827] text-white flex items-center justify-center font-bold text-lg">GH</div>
+            <div className="min-w-0">
+              <div className="font-bold">GitHub deploys</div>
+              <p className="text-sm text-slate-500 mt-0.5 max-w-md">
+                A production deploy on a connected repo <b>becomes</b> a scored, collision-checked change — and when the
+                deploy fails, the failure rate dashboard knows. Point the repo's webhook at
+                <code className="ml-1 text-xs bg-slate-100 rounded px-1">/api/integrations/github/webhook</code> with
+                <code className="ml-1 text-xs bg-slate-100 rounded px-1">GITHUB_WEBHOOK_SECRET</code>.
+              </p>
+            </div>
+          </div>
+          <Toggle on={Boolean(gh?.configured)} />
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <div className="text-[13px] font-bold text-navy">Connected repositories</div>
+            <div className="mt-2 space-y-2">
+              {(gh?.connections ?? []).length === 0 && (
+                <div className="rounded-lg border border-dashed border-slate-200 p-3 text-[12.5px] text-slate-400">No repositories connected yet.</div>
+              )}
+              {(gh?.connections ?? []).map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-semibold text-navy">{c.repo}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-slate-500">
+                      {c.default_system_keys.map((k) => <span key={k} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{k}</span>)}
+                      {c.auto_submit && <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">auto-submit</span>}
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost !px-2 !py-1 text-[11.5px] text-red-600" onClick={() => removeConn(c.id)}>Remove</button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className="input text-[13px]" placeholder="owner/repo" value={ghRepo} onChange={(e) => setGhRepo(e.target.value)} />
+                <input className="input text-[13px]" placeholder="systems: staging-web, orders-api" value={ghSystems} onChange={(e) => setGhSystems(e.target.value)} />
+              </div>
+              <label className="flex cursor-pointer select-none items-center gap-2 text-[12.5px] text-slate-600">
+                <input type="checkbox" className="accent-brand-600" checked={ghAutoSubmit} onChange={(e) => setGhAutoSubmit(e.target.checked)} />
+                Auto-submit deploys for approval (risky ones still need people)
+              </label>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-primary !py-1.5 text-[13px]" disabled={ghBusy || !ghRepo.trim()} onClick={connectRepo}>
+                  {ghBusy ? 'Connecting…' : 'Connect repo'}
+                </button>
+                {ghError && <span className="text-[12px] font-medium text-red-600">{ghError}</span>}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[13px] font-bold text-navy">Try it — simulate a deploy</div>
+            <div className="mt-2 grid gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className="input text-[13px]" placeholder="owner/repo" value={sim2Repo} onChange={(e) => setSim2Repo(e.target.value)} />
+                <input className="input text-[13px]" placeholder="workflow name" value={sim2Wf} onChange={(e) => setSim2Wf(e.target.value)} />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select className="input text-[13px]" value={sim2Conclusion} onChange={(e) => setSim2Conclusion(e.target.value as 'success' | 'failure')}>
+                  <option value="success">Deploy succeeds</option>
+                  <option value="failure">Deploy fails</option>
+                </select>
+                <input className="input text-[13px]" placeholder="deployer GitHub login (optional)" value={sim2Login} onChange={(e) => setSim2Login(e.target.value)} />
+              </div>
+              <button className="btn btn-primary !py-1.5 text-[13px]" disabled={sim2Busy || !sim2Repo.trim()} onClick={simulateDeploy}>
+                {sim2Busy ? 'Deploying…' : 'Simulate production deploy'}
+              </button>
+            </div>
+            {sim2Result && (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-[12.5px] text-slate-700">
+                Deploy <b>{sim2Conclusion}</b> → change {sim2Result.change_id ? <a className="font-semibold text-brand-700 hover:underline" href={`/changes/${sim2Result.change_id}`}>#{sim2Result.change_id}</a> : sim2Result.status}
+                {sim2Result.detail ? ` · ${sim2Result.detail}` : ''}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {ghDeliveries.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[13px] font-bold text-navy">Recent deliveries</div>
+            <div className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
+              {ghDeliveries.slice(0, 6).map((d) => (
+                <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[12.5px]">
+                  <div className="min-w-0">
+                    <span className="font-medium text-navy">{d.repo}</span>
+                    <span className="ml-2 text-slate-400">{d.event} · {d.action}</span>
+                    {d.detail && <span className="ml-2 text-slate-500">{d.detail}</span>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`pill ${d.status === 'processed' ? 'pill-green' : d.status === 'ignored' ? 'pill-neutral' : d.status === 'duplicate' ? 'pill-blue' : 'pill-red'}`}>{d.status}</span>
+                    {d.change_id && <a className="font-medium text-brand-700 hover:underline" href={`/changes/${d.change_id}`}>#{d.change_id}</a>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
