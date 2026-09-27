@@ -52,6 +52,12 @@ interface GHDeliveryRow {
   received_at: string
 }
 
+interface CalStatus {
+  enabled: boolean
+  url: string | null
+  note: string
+}
+
 function Toggle({ on }: { on: boolean }) {
   return (
     <span
@@ -91,6 +97,9 @@ export default function Integrations() {
   const [sim2Login, setSim2Login] = useState('')
   const [sim2Busy, setSim2Busy] = useState(false)
   const [sim2Result, setSim2Result] = useState<{ change_id?: number; status: string; detail?: string } | null>(null)
+  const [cal, setCal] = useState<CalStatus | null>(null)
+  const [calBusy, setCalBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     api<SlackStatus>('/api/integrations/slack/status').then(setSlack).catch(() => setSlack({ connected: false }))
@@ -99,6 +108,7 @@ export default function Integrations() {
     api<{ items: InboundRow[] }>('/api/integrations/email/inbound').then((r) => setInbound(r.items)).catch(() => setInbound([]))
     api<GitHubStatus>('/api/integrations/github/status').then(setGh).catch(() => setGh(null))
     api<{ items: GHDeliveryRow[] }>('/api/integrations/github/deliveries').then((r) => setGhDeliveries(r.items)).catch(() => setGhDeliveries([]))
+    api<CalStatus>('/api/integrations/calendar/status').then(setCal).catch(() => setCal(null))
   }, [])
 
   async function runSimulate() {
@@ -157,6 +167,26 @@ export default function Integrations() {
   async function removeConn(id: number) {
     await api(`/api/integrations/github/connections/${id}`, { method: 'DELETE' }).catch(() => {})
     await loadGh()
+  }
+
+  async function rotateCalendar() {
+    setCalBusy(true)
+    try {
+      const r = await api<CalStatus>('/api/integrations/calendar/rotate', { method: 'POST' })
+      setCal(r)
+      setCopied(false)
+    } finally {
+      setCalBusy(false)
+    }
+  }
+
+  async function copyCalUrl() {
+    if (!cal?.url) return
+    try {
+      await navigator.clipboard.writeText(cal.url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable — the URL is selectable anyway */ }
   }
 
   async function simulateDeploy() {
@@ -262,6 +292,28 @@ export default function Integrations() {
                 {sim2Result.detail ? ` · ${sim2Result.detail}` : ''}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[13px] font-bold text-navy">Calendar feed</div>
+              <p className="mt-0.5 text-[12px] text-slate-500">{cal?.note ?? 'Subscribe to change windows and freezes from Google Calendar or Outlook.'}</p>
+            </div>
+            <Toggle on={Boolean(cal?.enabled)} />
+          </div>
+          {cal?.enabled && cal.url && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input readOnly className="input min-w-0 flex-1 !py-1.5 font-mono text-[11.5px] text-slate-600" value={cal.url} onFocus={(e) => e.currentTarget.select()} />
+              <button className="btn btn-ghost !py-1.5 text-[12px]" onClick={copyCalUrl}>{copied ? 'Copied' : 'Copy'}</button>
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-2">
+            <button className="btn btn-primary !py-1.5 text-[12.5px]" disabled={calBusy} onClick={rotateCalendar}>
+              {calBusy ? 'Rotating…' : cal?.enabled ? 'Rotate feed URL' : 'Enable my calendar feed'}
+            </button>
+            {cal?.enabled && <span className="text-[11.5px] text-slate-400">Rotating kills the old URL (audit-logged).</span>}
           </div>
         </div>
 

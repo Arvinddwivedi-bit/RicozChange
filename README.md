@@ -17,6 +17,7 @@ AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite f
 | **Email-to-change** (phase 2) — file a change by emailing the mailbox; parsed, scored, filed as a draft, auto-reply with the score + "why" | Email setup below · Integrations page simulator |
 | **Email sweeps** — post-change "did it work?" prompts, daily pending-approval digests, fallbacks when Slack delivery fails | `POST /api/integrations/email/sweep` · Integrations page |
 | **Deploy-as-change** (v0.3) — a production deploy on a connected repo becomes a scored, collision-checked change; deploy status records the outcome | GitHub setup below · Integrations page |
+| **Calendar feed** (v0.3) — subscribe to change windows and freezes from Google Calendar / Outlook (read-only .ics) | Integrations page → Calendar feed |
 | **Post-change check + CFR dashboard** — "did it work?" feeds the failure rate | Dashboard KPI |
 
 ## Quickstart (no API keys needed)
@@ -133,6 +134,15 @@ completes, its conclusion (`success`/`failure`) is recorded as the post-change r
 work?" loop closes itself. Delivery-id idempotency means GitHub retries never duplicate changes.
 
 Use the **simulate** form on the Integrations page to see the pipeline without GitHub.
+
+## Calendar feed (v0.3, week 2)
+
+Every user gets a personal, rotatable .ics feed of visible change windows (submitted / approved /
+implementing) and freezes (all-day events): **Integrations → Calendar feed → Enable my calendar
+feed**, then paste the URL into Google Calendar (*Other calendars → From URL*) or Outlook
+(*Add calendar → Subscribe from web*). Events carry the risk score, class, status, systems and a
+deep link; UIDs are stable so updates replace events in place. Rotating the URL kills the old one
+(audit-logged). Two-way Google/Outlook write-back lands later in week 2.
 
 ## Configuration (all optional)
 

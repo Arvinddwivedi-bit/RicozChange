@@ -35,6 +35,9 @@ class User(Base):
     clerk_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     slack_id: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True, index=True)
     github_login: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
+    # Personal, rotatable token for the read-only .ics calendar feed
+    # (GET /api/calendar/changes.ics?token=...). None = feed disabled for the user.
+    calendar_token: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

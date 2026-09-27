@@ -5,10 +5,11 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles  # noqa: F401  (kept for future asset serving)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import calendar_app
 from . import config, db as dbmod
 from . import services
 from . import auth as auth_mod
@@ -1376,6 +1378,58 @@ def link_github(
     log_action(db, "user", user.id, "github_link", actor=actor.name, detail=payload.slack_id or "unmapped")
     db.commit()
     return {"id": user.id, "name": user.name, "github_login": user.github_login}
+
+
+# ---------- Calendar feed (v0.3, week 2) ----------
+
+@app.get("/api/calendar/changes.ics", include_in_schema=False)
+def calendar_feed(request: Request, token: str = Query(default=""), db: Session = Depends(dbmod.get_db)) -> Response:
+    """Read-only .ics feed of change windows and freezes.
+
+    Authenticated by the user's personal calendar_token (in the query string —
+    calendar clients can't send headers). Rotating the token kills the old URL;
+    the audit log records rotations without the token value.
+    """
+    if not token:
+        raise HTTPException(status_code=401, detail="missing calendar token")
+    user = db.execute(
+        select(User).where(User.calendar_token == token.strip())
+    ).scalars().first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="invalid calendar token")
+    ics = calendar_app.build_change_calendar(db)
+    return Response(
+        content=ics,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": 'inline; filename="ricozchange.ics"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.get("/api/integrations/calendar/status")
+def calendar_status(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+    """The signed-in user's feed URL state for the Integrations page."""
+    has_token = bool(actor.calendar_token)
+    url = f"{config.PUBLIC_BASE_URL}/api/calendar/changes.ics?token={actor.calendar_token}" if has_token else None
+    return {
+        "enabled": has_token,
+        "url": url,
+        "note": "Subscribes in Google Calendar / Outlook — read-only, updates every fetch.",
+    }
+
+
+@app.post("/api/integrations/calendar/rotate")
+def calendar_rotate(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
+    """Rotate (or create) the caller's calendar token; the old URL stops working."""
+    actor.calendar_token = secrets.token_hex(20)
+    log_action(db, "user", actor.id, "calendar_token_rotated", actor=actor.name, detail="feed url regenerated")
+    db.commit()
+    return {
+        "enabled": True,
+        "url": f"{config.PUBLIC_BASE_URL}/api/calendar/changes.ics?token={actor.calendar_token}",
+    }
 
 
 # ---------- static SPA (single-service deploy) ----------
