@@ -80,9 +80,27 @@ logging.getLogger("rico").setLevel(logging.INFO)
 # (Render sets 300; local/demo stays manual via POST /api/integrations/email/sweep).
 SWEEP_INTERVAL_SECONDS = int(os.getenv("EMAIL_SWEEP_SECONDS", "0") or "0")
 
+# Thread-pool size for sync endpoints (SQLAlchemy blocking calls). FastAPI/anyio
+# defaults to 40 worker threads: beyond that, requests queue behind the pool and
+# time out under load. Sized from THREADPOOL_TOKENS (default 200) — every sync
+# route blocks a thread for its DB work, so this is the real concurrency cap.
+# Applied at startup (needs a running event loop; TestClient provides one).
+THREADPOOL_TOKENS = int(os.getenv("THREADPOOL_TOKENS", "200"))
+
+
+def _apply_threadpool_tokens() -> None:
+    try:
+        from anyio import to_thread
+
+        to_thread.current_default_thread_limiter().total_tokens = THREADPOOL_TOKENS
+        logging.getLogger("rico").info("thread-pool tokens: %d", THREADPOOL_TOKENS)
+    except Exception as exc:  # noqa: BLE001 — never block startup over this
+        logging.getLogger("rico").warning("could not size thread pool: %s", exc)
+
 
 @app.on_event("startup")
 async def start_sweep_loop() -> None:
+    _apply_threadpool_tokens()
     if SWEEP_INTERVAL_SECONDS <= 0:
         return
 
