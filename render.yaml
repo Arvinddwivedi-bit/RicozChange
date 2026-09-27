@@ -41,6 +41,15 @@ services:
         sync: false
       - key: ADMIN_EMAILS
         sync: false # your real email -> admin account auto-provisioned on first sign-in
+      # Email-to-change (phase 2) — see README "Email-to-change":
+      - key: EMAIL_WEBHOOK_KEY
+        sync: false # random string; SendGrid posts to /api/integrations/email/inbound?key=<this>
+      - key: EMAIL_ALLOWED_DOMAINS
+        sync: false # e.g. yourcompany.com; empty = allow all (demo)
+      - key: EMAIL_SWEEP_SECONDS
+        value: "300" # background sweep every 5 min (prompts, digests, Slack fallbacks)
+      - key: LOG_LEVEL
+        value: "INFO"
 
 databases:
   # Render free Postgres: 1 GB, expires after 30 days (recreate or upgrade then).

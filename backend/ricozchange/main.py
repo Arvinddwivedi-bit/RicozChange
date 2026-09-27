@@ -1,7 +1,9 @@
 """FastAPI entry point."""
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -19,6 +21,7 @@ from . import services
 from . import auth as auth_mod
 from . import email_app
 from . import slack_app
+from .rate_limit import rate_limit, webhook_limiter, simulate_limiter, sweep_limiter
 from fastapi.security import HTTPAuthorizationCredentials
 from .auth import _bearer, get_actor, require_actor, require_role
 from .ai_drafting import draft_change_docs
@@ -57,6 +60,43 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------- logging (phase-2 week 4 hygiene) ----------
+# One consistent format for app loggers; delivery paths log failures with
+# context instead of failing silently. LOG_LEVEL overrides (default INFO).
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logging.getLogger("rico").setLevel(logging.INFO)
+
+# Background email sweep: only runs when EMAIL_SWEEP_SECONDS > 0
+# (Render sets 300; local/demo stays manual via POST /api/integrations/email/sweep).
+SWEEP_INTERVAL_SECONDS = int(os.getenv("EMAIL_SWEEP_SECONDS", "0") or "0")
+
+
+@app.on_event("startup")
+async def start_sweep_loop() -> None:
+    if SWEEP_INTERVAL_SECONDS <= 0:
+        return
+
+    async def _loop() -> None:
+        log = logging.getLogger("rico.email")
+        while True:
+            await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
+            try:
+                db = dbmod.SessionLocal()
+                try:
+                    counts = email_app.run_email_sweep(db)
+                    db.commit()
+                    if any(counts.values()):
+                        log.info("background sweep: %s", counts)
+                finally:
+                    db.close()
+            except Exception:  # noqa: BLE001 — the loop must survive anything
+                log.exception("background sweep failed")
+
+    asyncio.create_task(_loop())
 
 
 @app.on_event("startup")
@@ -901,7 +941,10 @@ def slack_oauth_callback(code: str = Query(...), state: str = Query(default=""),
     )
 
 
-@app.post("/api/slack/interactions")
+@app.post(
+    "/api/slack/interactions",
+    dependencies=[Depends(rate_limit(webhook_limiter, "slack"))],
+)
 async def slack_interactions(request: Request, db: Session = Depends(dbmod.get_db)) -> object:
     """Inbound Slack interactive payloads (approve/reject buttons)."""
     body = await request.body()
@@ -983,7 +1026,10 @@ def email_inbound_list(
     return {"items": [_serialize_inbound(r) for r in rows]}
 
 
-@app.post("/api/integrations/email/simulate")
+@app.post(
+    "/api/integrations/email/simulate",
+    dependencies=[Depends(rate_limit(simulate_limiter, "emailsim"))],
+)
 def email_simulate(payload: EmailInboundIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_actor)) -> dict:
     """Run the identical inbound pipeline without a mail server (demos/tests)."""
     from_addr = payload.from_addr.strip() or "demo@ricozchange.dev"
@@ -999,7 +1045,10 @@ def email_simulate(payload: EmailInboundIn, db: Session = Depends(dbmod.get_db),
     return {**result, "inbound_id": row.id, "status_code": row.status, "error_detail": row.error_detail}
 
 
-@app.post("/api/integrations/email/inbound")
+@app.post(
+    "/api/integrations/email/inbound",
+    dependencies=[Depends(rate_limit(webhook_limiter, "email"))],
+)
 async def email_inbound_webhook(request: Request, db: Session = Depends(dbmod.get_db)) -> dict:
     """SendGrid Inbound Parse webhook (multipart form; JSON also accepted).
 
@@ -1050,7 +1099,10 @@ async def email_inbound_webhook(request: Request, db: Session = Depends(dbmod.ge
     return {"status": result["status"], "change_id": result["change_id"], "reply": result["reply"], "inbound_id": row.id}
 
 
-@app.post("/api/integrations/email/sweep")
+@app.post(
+    "/api/integrations/email/sweep",
+    dependencies=[Depends(rate_limit(sweep_limiter, "sweep"))],
+)
 def email_sweep(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> dict:
     """Run one outbound sweep: post-change prompts, digests, Slack fallbacks."""
     counts = email_app.run_email_sweep(db)

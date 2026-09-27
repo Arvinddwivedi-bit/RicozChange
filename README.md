@@ -66,11 +66,12 @@ Good to know:
 
 ## 3-minute demo script
 
-1. **Dashboard** — CFR KPI and top open risk.
+1. **Dashboard** — CFR KPI, volume/trend charts, top open risk.
 2. Open change **#7** — walk the "Why this score" panel (major base + tier-0 systems + past failure on payments-db − overnight mitigation).
-3. **Slack demo** — hit ✅ Approve; the change flips to approved (any-of policy).
-4. **Simulator** — drag the window slider; show score, collisions and blast radius moving live.
-5. Back on the change: **Start implementing → Mark completed → post-change check** → dashboard CFR updates.
+3. **Approvals** — approve it with one click (any-of policy), or from a real Slack DM when installed.
+4. **Integrations → email simulator** — file a change by "emailing" it; watch it get parsed, scored and filed as a draft with a reply containing the full "why".
+5. **Simulator** — drag the window slider; show score, collisions and blast radius moving live.
+6. Back on the change: **Start implementing → Mark completed → post-change check** → dashboard CFR updates.
 
 ## Real Slack integration (phase 2, week 2)
 
@@ -148,6 +149,29 @@ The demo runs in open demo mode (single demo actor, no login). To require real s
 ```bash
 cd backend && .venv/Scripts/python -m pytest tests/ -q
 ```
+
+## Smoke-test a deployment
+
+One command verifies any deployment — read-only by default, safe to run against production:
+
+```bash
+backend/.venv/Scripts/python scripts/smoke.py https://ricozchange-1y64.onrender.com
+# add --write to also run the full workflow round-trip (demo deployments only):
+backend/.venv/Scripts/python scripts/smoke.py http://localhost:8600 --write
+```
+
+Checks: health, SPA bundle, Slack/email status endpoints, and the auth gate
+(a gated deployment reports its 401 as the *correct* answer). `--write` creates
+→ submits → approves → completes → post-checks a change, then leaves the audit trail.
+
+## Secret rotation (when you go to production)
+
+- **Clerk:** rotate `CLERK_SECRET_KEY` / keys from the Clerk dashboard → API keys; the JWKS
+  URL keeps working across rotation. Test-mode keys (`pk_test_`/`sk_test_`) are fine for demos.
+- **Slack:** rotate the signing secret and reinstall via `/api/integrations/slack/install`
+  (the bot token lives in the DB `settings` table — reinstall needs no redeploy).
+- **Email webhook:** change `EMAIL_WEBHOOK_KEY` and update the SendGrid Inbound Parse URL to match.
+- Rate limits protect the public endpoints (Slack/email webhooks: 60/min per IP; sweep: 6/min).
 
 ## Layout
 

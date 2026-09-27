@@ -18,6 +18,7 @@ and email fallbacks for Slack notifications whose delivery failed.
 from __future__ import annotations
 
 import hmac
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -29,6 +30,8 @@ from . import config
 from .audit import log_action
 from .models import Approval, Change, EmailInbound, Notification, Setting, SystemNode, User
 from .risk_engine import score_and_persist
+
+logger = logging.getLogger("rico.email")
 
 WEBHOOK_URL = "/api/integrations/email/inbound"
 
@@ -342,6 +345,7 @@ def run_email_sweep(db: Session) -> dict:
         db.flush()
     except Exception:  # noqa: BLE001 — sweep stages must never break each other
         db.rollback()
+        logger.exception("email sweep: post-change prompt stage failed")
 
     # 2. Daily pending-approval digest, one per approver per day.
     try:
@@ -381,8 +385,9 @@ def run_email_sweep(db: Session) -> dict:
             _set_daily_digest_marker(db, approver_id, today)
             counts["digests"] += 1
         db.flush()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — sweep stages must never break each other
         db.rollback()
+        logger.exception("email sweep: digest stage failed")
 
     # 3. Email fallback for Slack notifications whose delivery failed.
     try:
@@ -417,7 +422,8 @@ def run_email_sweep(db: Session) -> dict:
             note.message = {**(note.message or {}), "fallback_for": note.id}
             counts["slack_fallbacks"] += 1
         db.flush()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — sweep stages must never break each other
         db.rollback()
+        logger.exception("email sweep: slack-fallback stage failed")
 
     return counts

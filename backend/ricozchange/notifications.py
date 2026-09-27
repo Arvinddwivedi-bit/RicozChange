@@ -8,6 +8,7 @@ needed for the demo.
 from __future__ import annotations
 
 import json
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from . import slack_app
 from .models import Approval, Change, Notification, User
 
 APPROVER_ROLES = ("manager", "approver", "admin")
+
+logger = logging.getLogger("rico.notifications")
 
 
 def build_approval_message(change: Change, approval: Approval) -> dict:
@@ -85,7 +88,7 @@ def queue_approval_requests(db: Session, change: Change) -> list[Notification]:
     try:
         slack_app.deliver_pending(db)
     except Exception:  # noqa: BLE001 — delivery must never break submission
-        pass
+        logger.exception("slack delivery pass failed (recorded on outbox rows where possible)")
     return created
 
 
