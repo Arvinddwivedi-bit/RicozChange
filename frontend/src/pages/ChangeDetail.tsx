@@ -56,7 +56,7 @@ export default function ChangeDetail() {
           <div className="flex items-center gap-3">
             <Link to="/changes" className="text-sm text-slate-400 hover:text-slate-600">← Changes</Link>
           </div>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight flex items-center gap-3 min-w-0">
+          <h1 className="mt-1.5 page-title flex items-center gap-3 min-w-0">
             <span className="break-words min-w-0">#{change.id} {change.title}</span>
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">

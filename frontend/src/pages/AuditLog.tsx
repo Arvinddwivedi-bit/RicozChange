@@ -61,8 +61,9 @@ export default function AuditLog() {
   return (
     <div className="p-8 max-w-5xl space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Audit log</h1>
-        <p className="text-sm text-slate-500">
+        <div className="eyebrow">Trust &amp; Compliance</div>
+        <h1 className="page-title">Audit Log</h1>
+        <p className="mt-1 text-[13.5px] text-slate-500">
           Append-only trail of every action — transitions, decisions, denials, deliveries and provisions. Written once, never edited.
         </p>
       </div>

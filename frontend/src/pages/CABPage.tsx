@@ -71,8 +71,9 @@ export default function CABPage() {
     <div className="p-8 grid xl:grid-cols-3 gap-6 items-start">
       <div className="xl:col-span-2 space-y-5 min-w-0">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">CAB meetings</h1>
-          <p className="text-sm text-slate-500">The Tuesday ritual, minus the spreadsheet. Approve straight from the agenda.</p>
+          <div className="eyebrow">Governance</div>
+          <h1 className="page-title">CAB Meetings</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500">The Tuesday ritual, minus the spreadsheet. Approve straight from the agenda.</p>
         </div>
 
         <section className="card p-5">

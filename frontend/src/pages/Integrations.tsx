@@ -279,8 +279,9 @@ export default function Integrations() {
   return (
     <div className="p-8 max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Integrations</h1>
-        <p className="text-sm text-slate-500">Live connections that carry RicozChange into your team's daily tools.</p>
+        <div className="eyebrow">One Connected Platform</div>
+        <h1 className="page-title">Integrations</h1>
+        <p className="mt-1 text-[13.5px] text-slate-500">Live connections that carry RicozChange into your team's daily tools.</p>
       </div>
 
       <div className="card p-5">
@@ -288,7 +289,7 @@ export default function Integrations() {
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 shrink-0 rounded-lg bg-[#111827] text-white flex items-center justify-center font-bold text-lg">GH</div>
             <div className="min-w-0">
-              <div className="font-bold">GitHub deploys</div>
+              <div className="font-bold">GitHub Deploys</div>
               <p className="text-sm text-slate-500 mt-0.5 max-w-md">
                 A production deploy on a connected repo <b>becomes</b> a scored, collision-checked change — and when the
                 deploy fails, the failure rate dashboard knows. Point the repo's webhook at
@@ -301,8 +302,7 @@ export default function Integrations() {
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div>
-            <div className="text-[13px] font-bold text-navy">Connected repositories</div>
+          <div>                <div className="text-[13px] font-bold text-navy">Connected Repositories</div>
             <div className="mt-2 space-y-2">
               {(gh?.connections ?? []).length === 0 && (
                 <div className="rounded-lg border border-dashed border-slate-200 p-3 text-[12.5px] text-slate-400">No repositories connected yet.</div>
@@ -331,7 +331,7 @@ export default function Integrations() {
               </label>
               <div className="flex items-center gap-2">
                 <button className="btn btn-primary !py-1.5 text-[13px]" disabled={ghBusy || !ghRepo.trim()} onClick={connectRepo}>
-                  {ghBusy ? 'Connecting…' : 'Connect repo'}
+                  {ghBusy ? 'Connecting…' : 'Connect Repo'}
                 </button>
                 {ghError && <span className="text-[12px] font-medium text-red-600">{ghError}</span>}
               </div>
@@ -339,7 +339,7 @@ export default function Integrations() {
           </div>
 
           <div>
-            <div className="text-[13px] font-bold text-navy">Try it — simulate a deploy</div>
+            <div className="text-[13px] font-bold text-navy">Try It — Simulate A Deploy</div>
             <div className="mt-2 grid gap-2">
               <div className="grid gap-2 sm:grid-cols-2">
                 <input className="input text-[13px]" placeholder="owner/repo" value={sim2Repo} onChange={(e) => setSim2Repo(e.target.value)} />
@@ -368,7 +368,7 @@ export default function Integrations() {
         <div className="mt-4 rounded-lg border border-slate-200 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-[13px] font-bold text-navy">Calendar feed</div>
+              <div className="text-[13px] font-bold text-navy">Calendar Feed</div>
               <p className="mt-0.5 text-[12px] text-slate-500">{cal?.note ?? 'Subscribe to change windows and freezes from Google Calendar or Outlook.'}</p>
             </div>
             <Toggle on={Boolean(cal?.enabled)} />
@@ -389,7 +389,7 @@ export default function Integrations() {
           <div className="mt-3 border-t border-slate-200 pt-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[13px] font-bold text-navy">Two-way write-back (Google)</div>
+                <div className="text-[13px] font-bold text-navy">Two-Way Write-Back (Google)</div>
                 <p className="mt-0.5 text-[12px] text-slate-500 max-w-md">
                   {gcal?.connected
                     ? `Writing changes and freezes to Google calendar ${gcal.calendar_id ?? ''} — events appear on submit, update on reschedule, and disappear on cancel.`
@@ -480,7 +480,7 @@ export default function Integrations() {
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 shrink-0 rounded-lg bg-navy text-white flex items-center justify-center font-bold text-lg">#</div>
           <div>
-            <div className="font-bold">Slack</div>
+            <div className="font-bold">Slack Approvals</div>
             <p className="text-sm text-slate-500 mt-0.5 max-w-md">
               Approval requests land as direct messages with the risk score and its reasoning inline. Approvers decide with one
               click — no login needed. Configure with <code className="text-xs bg-slate-100 rounded px-1">SLACK_CLIENT_ID</code> /
@@ -504,7 +504,7 @@ export default function Integrations() {
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 shrink-0 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-lg">R</div>
           <div>
-            <div className="font-bold">Clerk sign-in</div>
+            <div className="font-bold">Clerk Sign-In</div>
             <p className="text-sm text-slate-500 mt-0.5 max-w-md">
               Real authentication: session tokens verified against Clerk's signing keys, roles enforced server-side, every
               action attributable. Admins are auto-provisioned from the <code className="text-xs bg-slate-100 rounded px-1">ADMIN_EMAILS</code> allowlist
@@ -525,7 +525,7 @@ export default function Integrations() {
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 shrink-0 rounded-lg bg-navy text-white flex items-center justify-center font-bold text-lg">@</div>
             <div className="min-w-0">
-              <div className="font-bold">Email-to-change</div>
+              <div className="font-bold">Email-To-Change</div>
               <p className="text-sm text-slate-500 mt-0.5 max-w-md">
                 File a change by emailing the mailbox — parsed, scored and routed automatically.
                 Email can only file a <b>draft</b>; humans submit. Replies always include the risk score and its reasoning.
@@ -553,7 +553,7 @@ export default function Integrations() {
         )}
 
         <div className="mt-4 rounded-lg border border-slate-200 p-4">
-          <div className="text-[13px] font-bold text-navy">Try it — simulate an inbound email</div>
+          <div className="text-[13px] font-bold text-navy">Try It — Simulate An Inbound Email</div>
           <p className="mt-0.5 text-[12px] text-slate-500">
             Runs the exact pipeline the webhook runs. Body keywords: <code className="rounded bg-slate-100 px-1">systems:</code>{' '}
             <code className="rounded bg-slate-100 px-1">window: 2026-10-01 22:00 - 23:30</code>{' '}
@@ -573,7 +573,7 @@ export default function Integrations() {
             />
             <div className="flex flex-wrap items-center gap-2">
               <button className="btn btn-primary" disabled={simBusy || !simSubject.trim() || !simBody.trim()} onClick={runSimulate}>
-                {simBusy ? 'Filing…' : 'File by email'}
+                {simBusy ? 'Filing…' : 'File By Email'}
               </button>
               {simError && <span className="text-[12px] font-medium text-red-600">{simError}</span>}
             </div>

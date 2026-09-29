@@ -191,7 +191,8 @@ export default function Approvals() {
       {/* ---------- header ---------- */}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">Approval Inbox</h1>
+          <div className="eyebrow">Decide In Seconds</div>
+          <h1 className="page-title">Approval Inbox</h1>
           <p className="mt-0.5 text-[13.5px] text-slate-500">Review high-risk changes before they reach production.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

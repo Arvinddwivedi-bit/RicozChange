@@ -55,8 +55,9 @@ export default function Simulator() {
     <div className="p-8 grid xl:grid-cols-2 gap-6 items-start">
       <div className="space-y-5 min-w-0">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Change Simulator</h1>
-          <p className="text-sm text-slate-500">
+          <div className="eyebrow">Score Before You File</div>
+          <h1 className="page-title">Change Simulator</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500">
             Drag the sliders. Watch the score, collisions and blast radius react in real time. Find the safe slot <em>before</em> you file.
           </p>
         </div>

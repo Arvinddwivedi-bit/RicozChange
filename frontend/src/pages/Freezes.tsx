@@ -39,8 +39,9 @@ export default function Freezes() {
     <div className="p-8 grid xl:grid-cols-3 gap-6 items-start">
       <div className="xl:col-span-2 space-y-5 min-w-0">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Freeze windows</h1>
-          <p className="text-sm text-slate-500">
+          <div className="eyebrow">Protect Peak Business</div>
+          <h1 className="page-title">Freeze Windows</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500">
             Periods where changes are blocked. Overlapping a freeze adds +25 to the risk score — the simulator and collision
             detector both respect these.
           </p>

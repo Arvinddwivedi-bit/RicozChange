@@ -27,12 +27,12 @@ export function useBoot(): Ctx {
 export function BrandMark({ subtitle }: { subtitle?: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="logo-tile">R</span>
+      <span className="logo-tile">rZ</span>
       <div className="min-w-0">
-        <div className="font-extrabold tracking-tight text-[17px] leading-none" style={{ color: 'var(--color-navy)' }}>
-          Ricoz<span className="text-brand-600">Change</span>
+        <div className="font-extrabold tracking-tight text-[18px] leading-none" style={{ color: 'var(--color-navy)' }}>
+          RicozChange
         </div>
-        <div className="text-[11px] text-slate-500 mt-1 truncate">{subtitle ?? 'AI-native change management'}</div>
+        <div className="text-[10.5px] text-slate-500 mt-1 truncate">{subtitle ?? 'AI-native change management'}</div>
       </div>
     </div>
   )

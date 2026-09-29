@@ -48,8 +48,9 @@ export default function Changes() {
     <div className="p-8 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Changes</h1>
-          <p className="text-sm text-slate-500">Every request, its risk score and where it stands</p>
+          <div className="eyebrow">Change Register</div>
+          <h1 className="page-title">Changes</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500">Every request, its risk score and where it stands</p>
         </div>
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onImport} />
@@ -57,7 +58,7 @@ export default function Changes() {
             Import CSV
           </button>
           <Link to="/changes/new" className="btn btn-primary">
-            New change
+            New Change
           </Link>
         </div>
       </div>

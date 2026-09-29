@@ -115,8 +115,9 @@ export default function ChangeForm() {
     <div className="p-8 grid xl:grid-cols-2 gap-6 items-start">
       <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">New change</h1>
-          <p className="text-sm text-slate-500">The risk score updates live as you fill this in — that's the point.</p>
+          <div className="eyebrow">File With Confidence</div>
+          <h1 className="page-title">New Change</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500">The risk score updates live as you fill this in — that's the point.</p>
         </div>
 
         <div className="card p-5 space-y-4">

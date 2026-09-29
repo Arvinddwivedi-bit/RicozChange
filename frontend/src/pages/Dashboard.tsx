@@ -32,21 +32,22 @@ export default function Dashboard() {
     <div className="p-8 space-y-6 max-w-[1400px]">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-slate-500">Live view of every change, approval and outcome</p>
+          <div className="eyebrow">Operate With Confidence</div>
+          <h1 className="page-title">Change Overview</h1>
+          <p className="mt-1 text-[13.5px] text-slate-500 max-w-lg">Every change, approval and outcome across your estate — live, scored and auditable.</p>
         </div>
         <Link to="/changes?new=1" className="btn btn-primary shrink-0">
-          New change
+          New Change
         </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Total changes" value={data.total_changes} />
-        <Kpi label="Pending approvals" value={data.pending_approvals} accent="text-sky-600" />
-        <Kpi label="In flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-brand-600" />
+        <Kpi label="Total Changes" value={data.total_changes} />
+        <Kpi label="Pending Approvals" value={data.pending_approvals} accent="text-sky-600" />
+        <Kpi label="In Flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-brand-600" />
         <div className="card p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Change failure rate</div>
-          <div className={`mt-1 text-3xl font-extrabold ${cfrTone}`}>{cfr}%</div>
+          <div className="metric-label">Change Failure Rate</div>
+          <div className={`mt-1 hero-stat !text-[2rem] ${cfrTone}`}>{cfr}%</div>
           <div className="mt-1 text-xs text-slate-500">
             {data.cfr.failed + data.cfr.partial} of {data.cfr.total} outcomes failed or partial
           </div>
@@ -133,11 +134,11 @@ export default function Dashboard() {
   )
 }
 
-function Kpi({ label, value, accent = 'text-slate-800' }: { label: string; value: number; accent?: string }) {
+function Kpi({ label, value, accent = 'text-navy' }: { label: string; value: number; accent?: string }) {
   return (
     <div className="card p-4 min-w-0">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 truncate">{label}</div>
-      <div className={`mt-1 text-3xl font-extrabold ${accent}`}>{value}</div>
+      <div className="metric-label truncate">{label}</div>
+      <div className={`mt-1 hero-stat !text-[2rem] ${accent}`}>{value}</div>
     </div>
   )
 }

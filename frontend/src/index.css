@@ -365,20 +365,22 @@ h1, h2, h3 {
   color: #94a3b8;
 }
 
-/* ---- Brand ---- */
+/* ---- Brand (Ricoz: solid crimson square, white lowercase “rZ” monogram) ---- */
 .logo-tile {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 2.125rem;
   height: 2.125rem;
-  border-radius: 0.625rem;
-  background: linear-gradient(145deg, var(--color-brand-500), var(--color-brand-700));
+  border-radius: 0.75rem;
+  background: var(--color-brand-600);
   color: #fff;
   font-weight: 800;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
   box-shadow: 0 2px 6px rgba(212, 34, 44, 0.3);
 }
+.logo-tile:hover { background: var(--color-brand-700); }
 
 .icon-btn {
   display: inline-flex;
@@ -436,3 +438,38 @@ h1, h2, h3 {
 }
 
 ::selection { background: rgba(212, 34, 44, 0.15); }
+
+/* ---- Ricoz editorial type system (matches the Ricoz marketing site) ----
+   Sections open with a red uppercase eyebrow (“GROW WITH CONFIDENCE”), a big
+   Title Case headline, a gray lede, and huge crimson stat numerals. */
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-brand-600);
+}
+
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+  color: var(--color-navy);
+}
+
+.hero-stat {
+  font-size: 2.375rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--color-brand-600);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--color-navy);
+}

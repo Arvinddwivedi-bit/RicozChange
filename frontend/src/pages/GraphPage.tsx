@@ -35,8 +35,9 @@ export default function GraphPage() {
   return (
     <div className="p-8 space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Blast radius</h1>
-        <p className="text-sm text-slate-500">
+        <div className="eyebrow">Know Before You Go</div>
+        <h1 className="page-title">Blast Radius</h1>
+        <p className="mt-1 text-[13.5px] text-slate-500">
           The live dependency map. Pick an active change: red = what it touches, pulsing = where it collides with someone else's work.
         </p>
       </div>
