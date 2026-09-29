@@ -13,7 +13,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import slack_app
+from . import slack_app, teams_app
 from .models import Approval, Change, Notification, User
 
 APPROVER_ROLES = ("manager", "approver", "admin")
@@ -81,6 +81,16 @@ def queue_approval_requests(db: Session, change: Change) -> list[Notification]:
         )
         db.add(note)
         created.append(note)
+        # Teams mirror row (v0.3 week 3): same payload, kind="teams". The
+        # Approvals page renders kind="slack" only, so the duplicate stays
+        # invisible in demo mode; the Teams transport delivers its own rows.
+        db.add(Notification(
+            kind="teams",
+            channel=channel,
+            change_id=change.id,
+            approval_id=approval.id,
+            message=message,
+        ))
     db.flush()
     # Mirror to a real Slack workspace when installed (no-op in demo mode —
     # deliver_pending returns 0 without a bot token). Failures are recorded on
@@ -89,6 +99,12 @@ def queue_approval_requests(db: Session, change: Change) -> list[Notification]:
         slack_app.deliver_pending(db)
     except Exception:  # noqa: BLE001 — delivery must never break submission
         logger.exception("slack delivery pass failed (recorded on outbox rows where possible)")
+    # Same best-effort pass for the Teams transport (no-op unless the Azure
+    # bot is configured AND someone has messaged it once, giving a serviceUrl).
+    try:
+        teams_app.deliver_pending(db)
+    except Exception:  # noqa: BLE001 — delivery must never break submission
+        logger.exception("teams delivery pass failed (recorded on outbox rows where possible)")
     return created
 
 

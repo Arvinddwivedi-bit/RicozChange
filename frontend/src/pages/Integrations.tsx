@@ -66,6 +66,12 @@ interface GoogleCalStatus {
   connected_at?: string
 }
 
+interface TeamsStatus {
+  connected: boolean
+  client_configured: boolean
+  setup: string
+}
+
 function Toggle({ on }: { on: boolean }) {
   return (
     <span
@@ -111,6 +117,9 @@ export default function Integrations() {
   const [gcal, setGcal] = useState<GoogleCalStatus | null>(null)
   const [gcalBusy, setGcalBusy] = useState(false)
   const [gcalMsg, setGcalMsg] = useState<string | null>(null)
+  const [teams, setTeams] = useState<TeamsStatus | null>(null)
+  const [teamsBusy, setTeamsBusy] = useState(false)
+  const [teamsMsg, setTeamsMsg] = useState<string | null>(null)
 
   useEffect(() => {
     api<SlackStatus>('/api/integrations/slack/status').then(setSlack).catch(() => setSlack({ connected: false }))
@@ -121,6 +130,7 @@ export default function Integrations() {
     api<{ items: GHDeliveryRow[] }>('/api/integrations/github/deliveries').then((r) => setGhDeliveries(r.items)).catch(() => setGhDeliveries([]))
     api<CalStatus>('/api/integrations/calendar/status').then(setCal).catch(() => setCal(null))
     api<GoogleCalStatus>('/api/integrations/google/status').then(setGcal).catch(() => setGcal(null))
+    api<TeamsStatus>('/api/integrations/teams/status').then(setTeams).catch(() => setTeams(null))
   }, [])
 
   async function runSimulate() {
@@ -234,6 +244,18 @@ export default function Integrations() {
       setGcalMsg(String(e).replace('Error: ', ''))
     } finally {
       setGcalBusy(false)
+    }
+  }
+
+  async function syncTeamsNow() {
+    setTeamsBusy(true); setTeamsMsg(null)
+    try {
+      const r = await api<{ teams_delivered: number; teams_fallbacks: number }>('/api/integrations/teams/sweep', { method: 'POST' })
+      setTeamsMsg(`Delivered ${r.teams_delivered} card${r.teams_delivered === 1 ? '' : 's'}${r.teams_fallbacks ? ` · ${r.teams_fallbacks} email fallback${r.teams_fallbacks === 1 ? '' : 's'}` : ''}`)
+    } catch (e) {
+      setTeamsMsg(String(e).replace('Error: ', ''))
+    } finally {
+      setTeamsBusy(false)
     }
   }
 
@@ -422,6 +444,36 @@ export default function Integrations() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="card p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-[#464EB8] text-white flex items-center justify-center font-bold text-lg">T</div>
+          <div className="min-w-0">
+            <div className="font-bold">Microsoft Teams</div>
+            <p className="text-sm text-slate-500 mt-0.5 max-w-md">
+              Approval cards with score and reasoning, Approve/Reject inline — the Slack experience for
+              Microsoft shops. Register an Azure bot, set
+              <code className="ml-1 text-xs bg-slate-100 rounded px-1">TEAMS_APP_ID</code> /
+              <code className="ml-1 text-xs bg-slate-100 rounded px-1">TEAMS_APP_PASSWORD</code>, then message the bot once in Teams.
+              Outage fallback: approval requests arrive by email.
+            </p>
+          </div>
+        </div>
+        <div className="text-left sm:text-right shrink-0 space-y-2">
+          <Toggle on={Boolean(teams?.connected)} />
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {teams?.connected && (
+              <button className="btn btn-ghost !py-1.5 text-[12px]" disabled={teamsBusy} onClick={syncTeamsNow}>
+                {teamsBusy ? 'Syncing…' : 'Sync now'}
+              </button>
+            )}
+            {teamsMsg && <span className="text-[12px] font-medium text-slate-600">{teamsMsg}</span>}
+          </div>
+          {teams?.connected === false && teams?.client_configured === false && (
+            <div className="text-[11px] text-slate-400 max-w-xs">{teams?.setup}</div>
+          )}
+        </div>
       </div>
 
       <div className="card p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">

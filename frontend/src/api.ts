@@ -94,7 +94,7 @@ export interface WindowSuggestion {
 
 export interface NotificationT {
   id: number
-  kind: 'slack' | 'email'
+  kind: 'slack' | 'email' | 'teams'
   channel: string
   change_id: number | null
   approval_id: number | null

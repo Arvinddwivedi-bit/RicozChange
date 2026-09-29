@@ -59,6 +59,11 @@ SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET", "")
 SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI", "")  # e.g. https://<host>/api/integrations/slack/oauth/callback
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://ricozchange-1y64.onrender.com")
 
+# Microsoft Teams (v0.3 week 3). Bot Framework app credentials from the Azure
+# "Bot registration" (App ID + client secret). Leave empty = demo outbox only.
+TEAMS_APP_ID = os.getenv("TEAMS_APP_ID", "")
+TEAMS_APP_PASSWORD = os.getenv("TEAMS_APP_PASSWORD", "")
+
 # Email-to-change (phase 2, week 3). All optional; empty = demo outbox mode.
 # Signature secret for the SendGrid Inbound Parse webhook (verification on when set).
 EMAIL_WEBHOOK_KEY = os.getenv("EMAIL_WEBHOOK_KEY", "")

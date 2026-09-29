@@ -14,6 +14,7 @@ AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite f
 | **AI-drafted rollback / test / comms plans** — human-approved, never auto-applied | Detail page → "AI drafting" |
 | **Slack-style approvals** — approve with the "why" inline | `/slack` demo outbox |
 | **Real Slack integration** (phase 2) — OAuth install, DMs with the "why", approve/reject buttons in Slack, signed callbacks | Slack setup below |
+| **Microsoft Teams** (v0.3) — approval cards with the "why" on the Bot Framework, JWT-validated interactions, email fallback when Teams is down | Teams setup below |
 | **Email-to-change** (phase 2) — file a change by emailing the mailbox; parsed, scored, filed as a draft, auto-reply with the score + "why" | Email setup below · Integrations page simulator |
 | **Email sweeps** — post-change "did it work?" prompts, daily pending-approval digests, fallbacks when Slack delivery fails | `POST /api/integrations/email/sweep` · Integrations page |
 | **Deploy-as-change** (v0.3) — a production deploy on a connected repo becomes a scored, collision-checked change; deploy status records the outcome | GitHub setup below · Integrations page |
@@ -93,6 +94,30 @@ resolve the change through the same any-of policy as the web app.
 Behavioral guarantees (all tested): invalid signature → 401 + audit entry; Slack unreachable →
 delivery error recorded on the outbox row, web approvals keep working; replayed button clicks →
 idempotent; unlinked actor → ephemeral "link your account" hint.
+
+## Microsoft Teams approvals (v0.3, week 3)
+
+The same approval cards as Slack, for the Microsoft half of the market. A Teams app on the
+Bot Framework DMs mapped approvers an Adaptive Card — score, "why this score", Approve/Reject
+buttons — and the decision flows through the identical any-of policy, idempotency and audit
+trail as the web and Slack paths. Only the transport differs.
+
+Setup (~10 minutes, one time):
+
+1. In Azure Portal create a **Bot registration** (Azure Bot resource): note the **App ID** and
+   create a **client secret**.
+2. Set the bot's **Messaging endpoint** to `https://<host>/api/teams/interactions`.
+3. Put `TEAMS_APP_ID` and `TEAMS_APP_PASSWORD` in the environment.
+4. Install: message the bot once in Teams (or add it to a team). The `conversationUpdate`
+   activity completes the install — the service URL is stored in the DB, no redeploy needed.
+5. Link approvers: automatic on first Teams action when the directory email (Microsoft Graph)
+   matches the RicozChange account, or manually via `POST /api/users/{id}/teams-link` (admin).
+
+Behavioral guarantees (all tested, mirroring the Slack suite): inbound requests validated as
+`Authorization: Bearer` JWTs against the Bot Framework OpenID metadata (RS256, audience = bot
+App ID, cached) — invalid token → 401 + audit entry; Teams unreachable → delivery error on the
+outbox row, **Sync now** (or the sweep) retries and email-fallbacks undeliverable cards; any-of
+policy closes the other approver's card; replayed clicks are idempotent.
 
 ## Email-to-change (phase 2, week 3)
 
@@ -181,6 +206,8 @@ Copy `backend/.env.example` → `.env`. Highlights:
 - `GATE_BY_DEMO_USER=true` + Clerk vars — real auth via Clerk JWKS; demo mode is single-user.
 - `ADMIN_EMAILS` — comma-separated emails that get an **admin account auto-provisioned** on first Clerk sign-in.
 - `SLACK_*` — the real Slack integration (see above); all empty = demo outbox only.
+- `TEAMS_APP_ID` / `TEAMS_APP_PASSWORD` — Teams approval cards on the Bot Framework (see above);
+  unset = demo outbox only.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — two-way Google Calendar write-back (see above);
   unset = the write-back UI shows a setup hint and the read-only .ics feed still works.
 

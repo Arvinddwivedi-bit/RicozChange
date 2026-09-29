@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import config
+from . import config, teams_app
 from .audit import log_action
 from .models import Approval, Change, EmailInbound, Notification, Setting, SystemNode, User
 from .risk_engine import score_and_persist
@@ -309,7 +309,8 @@ def _set_daily_digest_marker(db: Session, user_id: int, day: str) -> None:
 def run_email_sweep(db: Session) -> dict:
     """One sweep pass: post-change prompts, approval digests, Slack fallbacks.
     Every stage is independent — one failure never blocks the others."""
-    counts = {"post_change_prompts": 0, "digests": 0, "slack_fallbacks": 0}
+    counts = {"post_change_prompts": 0, "digests": 0, "slack_fallbacks": 0,
+              "teams_delivered": 0, "teams_fallbacks": 0}
     now = datetime.utcnow()
 
     # 1. "Did it work?" prompts — once per change, after the window closed.
@@ -425,5 +426,15 @@ def run_email_sweep(db: Session) -> dict:
     except Exception:  # noqa: BLE001 — sweep stages must never break each other
         db.rollback()
         logger.exception("email sweep: slack-fallback stage failed")
+
+    # 4. Teams transport sweep (v0.3 week 3): retry undelivered approval cards
+    # and email-fallback the ones Teams never managed to deliver. Same failure
+    # isolation as every other stage.
+    try:
+        teams_counts = teams_app.run_teams_sweep(db)
+        counts["teams_delivered"] += teams_counts.get("teams_delivered", 0)
+        counts["teams_fallbacks"] += teams_counts.get("teams_fallbacks", 0)
+    except Exception:  # noqa: BLE001 — sweep stages must never break each other
+        logger.exception("email sweep: teams stage failed")
 
     return counts

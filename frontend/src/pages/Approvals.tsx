@@ -98,7 +98,7 @@ export default function Approvals() {
   const [err, setErr] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [showDecided, setShowDecided] = useState(false)
-  const [kindFilter, setKindFilter] = useState<'all' | 'slack' | 'email'>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'slack' | 'teams' | 'email'>('all')
   const [query, setQuery] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
@@ -128,9 +128,14 @@ export default function Approvals() {
     }
   }
 
-  const pending = useMemo(() => (notes ?? []).filter((n) => !n.acted && n.kind === 'slack'), [notes])
-  const decided = useMemo(() => (notes ?? []).filter((n) => n.acted && n.kind === 'slack'), [notes])
-  const visible = showDecided ? notes ?? [] : (notes ?? []).filter((n) => !n.acted || n.kind === 'email')
+  const pending = useMemo(() => (notes ?? []).filter((n) => !n.acted && (n.kind === 'slack' || n.kind === 'teams')), [notes])
+  const decided = useMemo(() => (notes ?? []).filter((n) => n.acted && (n.kind === 'slack' || n.kind === 'teams')), [notes])
+  const visible = showDecided
+    ? notes ?? []
+    // Teams mirror rows are hidden from the web inbox: the Teams transport
+    // renders them in Teams (or falls back to email), so showing both would
+    // double every approval request.
+    : (notes ?? []).filter((n) => !n.acted || n.kind !== 'teams')
 
   const filtered = useMemo(() => {
     let rows = kindFilter === 'all' ? visible : visible.filter((n) => n.kind === kindFilter)
@@ -146,9 +151,9 @@ export default function Approvals() {
     return rows
   }, [visible, query, kindFilter])
 
-  // Slack approval cards keyed off the message payload (same as before).
+  // Approval cards (Slack + Teams share the outbox payload shape).
   const cards = filtered
-    .filter((n) => n.kind === 'slack')
+    .filter((n) => n.kind === 'slack' || n.kind === 'teams')
     .map((n) => {
     const byType = new Map<string, any>()
     for (const b of n.message.blocks ?? []) byType.set(b.type, b)
@@ -236,7 +241,7 @@ export default function Approvals() {
         <span className="pill pill-neutral">{metrics.mine} awaiting you</span>
         {metrics.highRisk > 0 && <span className="pill pill-amber"><span className="pill-dot" />{metrics.highRisk} high risk</span>}
         <div className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-white p-0.5">
-          {(['all', 'slack', 'email'] as const).map((k) => (
+          {(['all', 'slack', 'teams', 'email'] as const).map((k) => (
             <button
               key={k}
               onClick={() => setKindFilter(k)}

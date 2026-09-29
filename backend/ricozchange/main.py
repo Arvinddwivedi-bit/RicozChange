@@ -25,6 +25,7 @@ from . import auth as auth_mod
 from . import email_app
 from . import github_app
 from . import slack_app
+from . import teams_app
 from .rate_limit import rate_limit, webhook_limiter, simulate_limiter, sweep_limiter
 from fastapi.security import HTTPAuthorizationCredentials
 from .auth import _bearer, get_actor, require_actor, require_role
@@ -277,6 +278,10 @@ class NotificationActionIn(BaseModel):
 
 class SlackLinkIn(BaseModel):
     slack_id: str = ""
+
+
+class TeamsLinkIn(BaseModel):
+    teams_id: str = ""
 
 
 # ---------- generic list endpoints ----------
@@ -1020,6 +1025,108 @@ def link_slack(user_id: int, payload: SlackLinkIn, db: Session = Depends(dbmod.g
     log_action(db, "user", user.id, "slack_link", actor=actor.name, detail=payload.slack_id or "unlinked")
     db.commit()
     return {"id": user.id, "name": user.name, "slack_id": user.slack_id}
+
+
+# ---------- Teams integration (v0.3, week 3) ----------
+
+
+@app.get("/api/integrations/teams/status")
+def teams_status(db: Session = Depends(dbmod.get_db)) -> dict:
+    """Connection status for the integrations UI."""
+    connected = teams_app.is_connected(db)
+    return {
+        "connected": connected,
+        "client_configured": bool(config.TEAMS_APP_ID and config.TEAMS_APP_PASSWORD),
+        "setup": (
+            "Register an Azure bot (App ID + client secret), set TEAMS_APP_ID / "
+            "TEAMS_APP_PASSWORD, then message the bot once in Teams to complete install."
+        ),
+    }
+
+
+@app.post(
+    "/api/teams/interactions",
+    dependencies=[Depends(rate_limit(webhook_limiter, "teams"))],
+)
+async def teams_interactions(request: Request, db: Session = Depends(dbmod.get_db)) -> object:
+    """Inbound Bot Framework activities (message the bot, Action.Submit cards).
+
+    Auth: `Authorization: Bearer` JWT from the Bot Framework, validated against
+    the published OpenID metadata (the Slack-signature pattern ported). Invalid
+    tokens are 401 + audit entry — never 500.
+    """
+    body = await request.body()
+    try:
+        teams_app.verify_bot_token(request.headers.get("authorization", ""), db)
+    except ValueError as exc:
+        log_action(db, "system", 0, "teams_interaction_rejected", actor="teams", detail=str(exc)[:200])
+        db.commit()
+        raise HTTPException(status_code=401, detail=f"invalid Teams token ({exc})")
+
+    try:
+        payload = json.loads(body.decode("utf-8", "replace"))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="body must be a Bot Framework activity JSON")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="body must be a Bot Framework activity JSON")
+
+    # conversationUpdate: someone added the bot / messaged it first — remember
+    # the serviceUrl (and bot/tenant ids) so proactive DMs know where to send.
+    if payload.get("type") == "conversationUpdate":
+        service_url = str(payload.get("serviceUrl", "")).rstrip("/")
+        if service_url:
+            member = next((m for m in (payload.get("membersAdded") or [])), None)
+            recipient = payload.get("recipient") or {}
+            teams_app.save_settings(
+                db,
+                service_url=service_url,
+                bot_id=str(recipient.get("id", "")),
+                tenant_id=str((payload.get("channelData") or {}).get("tenant", {}).get("id", "")),
+                installed_at=datetime.now().isoformat(),
+                first_member_id=str((member or {}).get("id", "")),
+            )
+            log_action(db, "system", 0, "teams_installed", actor="teams", detail=f"serviceUrl {service_url}")
+            db.commit()
+        return JSONResponse({"status": "ok"})
+
+    # message with Action.Submit data -> approve/reject.
+    value = payload.get("value") if isinstance(payload.get("value"), dict) else {}
+    if not value:
+        return JSONResponse({"status": "ignored"})
+    result = teams_app.handle_interaction(
+        db,
+        value=value,
+        from_id=str((payload.get("from") or {}).get("id", "")),
+        conversation_id=str((payload.get("conversation") or {}).get("id", "")),
+        activity_id=str(payload.get("id", "")),
+    )
+    db.commit()
+    return JSONResponse(result)
+
+
+@app.post("/api/integrations/teams/sweep")
+def teams_sweep(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> dict:
+    """Manual pass: retry undelivered Teams cards + email fallback (the sweep
+    runs this automatically when EMAIL_SWEEP_SECONDS > 0)."""
+    counts = teams_app.run_teams_sweep(db)
+    db.commit()
+    return counts
+
+
+@app.post("/api/users/{user_id}/teams-link")
+def link_teams(user_id: int, payload: TeamsLinkIn, db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin"))) -> dict:
+    """Admin manual link (fallback when Graph autolink can't match)."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if payload.teams_id:
+        clash = db.execute(select(User).where(User.teams_id == payload.teams_id, User.id != user.id)).scalars().first()
+        if clash:
+            raise HTTPException(status_code=409, detail=f"teams_id already linked to {clash.name}")
+    user.teams_id = payload.teams_id or None
+    log_action(db, "user", user.id, "teams_link", actor=actor.name, detail=payload.teams_id or "unlinked")
+    db.commit()
+    return {"id": user.id, "name": user.name, "teams_id": user.teams_id}
 
 
 # ---------- Email integration (phase 2, week 3) ----------

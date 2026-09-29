@@ -38,6 +38,9 @@ class User(Base):
     # Personal, rotatable token for the read-only .ics calendar feed
     # (GET /api/calendar/changes.ics?token=...). None = feed disabled for the user.
     calendar_token: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
+    # Teams AAD object id (v0.3 week 3). Same pattern as slack_id: set by email
+    # autolink on first Teams action, or by the admin manual-link fallback.
+    teams_id: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -251,6 +254,11 @@ class Notification(Base):
     slack_channel: Mapped[str | None] = mapped_column(String(40), nullable=True)
     slack_ts: Mapped[str | None] = mapped_column(String(40), nullable=True)
     delivery_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Real-Teams delivery audit (kind="teams" mirror rows): the Bot Framework
+    # conversation id + activity id let approve/reject updates edit the card
+    # in place (buttons vanish once decided).
+    teams_conversation_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    teams_activity_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
 
