@@ -58,6 +58,14 @@ interface CalStatus {
   note: string
 }
 
+interface GoogleCalStatus {
+  connected: boolean
+  client_configured: boolean
+  connect_url?: string
+  calendar_id?: string
+  connected_at?: string
+}
+
 function Toggle({ on }: { on: boolean }) {
   return (
     <span
@@ -100,6 +108,9 @@ export default function Integrations() {
   const [cal, setCal] = useState<CalStatus | null>(null)
   const [calBusy, setCalBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [gcal, setGcal] = useState<GoogleCalStatus | null>(null)
+  const [gcalBusy, setGcalBusy] = useState(false)
+  const [gcalMsg, setGcalMsg] = useState<string | null>(null)
 
   useEffect(() => {
     api<SlackStatus>('/api/integrations/slack/status').then(setSlack).catch(() => setSlack({ connected: false }))
@@ -109,6 +120,7 @@ export default function Integrations() {
     api<GitHubStatus>('/api/integrations/github/status').then(setGh).catch(() => setGh(null))
     api<{ items: GHDeliveryRow[] }>('/api/integrations/github/deliveries').then((r) => setGhDeliveries(r.items)).catch(() => setGhDeliveries([]))
     api<CalStatus>('/api/integrations/calendar/status').then(setCal).catch(() => setCal(null))
+    api<GoogleCalStatus>('/api/integrations/google/status').then(setGcal).catch(() => setGcal(null))
   }, [])
 
   async function runSimulate() {
@@ -187,6 +199,42 @@ export default function Integrations() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch { /* clipboard unavailable — the URL is selectable anyway */ }
+  }
+
+  async function loadGoogle() {
+    api<GoogleCalStatus>('/api/integrations/google/status').then(setGcal).catch(() => {})
+  }
+
+  function connectGoogle() {
+    if (gcal?.connect_url) window.location.href = gcal.connect_url
+  }
+
+  async function disconnectGoogle() {
+    setGcalBusy(true); setGcalMsg(null)
+    try {
+      await api('/api/integrations/google/disconnect', { method: 'POST' })
+      await loadGoogle()
+    } catch (e) {
+      setGcalMsg(String(e).replace('Error: ', ''))
+    } finally {
+      setGcalBusy(false)
+    }
+  }
+
+  async function syncGoogleNow() {
+    setGcalBusy(true); setGcalMsg(null)
+    try {
+      const r = await api<{ status: string; synced: number; failed: number }>('/api/integrations/google/sync', { method: 'POST' })
+      setGcalMsg(
+        r.status === 'skipped'
+          ? 'Connect Google Calendar first.'
+          : `Synced ${r.synced} item${r.synced === 1 ? '' : 's'}${r.failed ? ` · ${r.failed} failed` : ''}`,
+      )
+    } catch (e) {
+      setGcalMsg(String(e).replace('Error: ', ''))
+    } finally {
+      setGcalBusy(false)
+    }
   }
 
   async function simulateDeploy() {
@@ -314,6 +362,43 @@ export default function Integrations() {
               {calBusy ? 'Rotating…' : cal?.enabled ? 'Rotate feed URL' : 'Enable my calendar feed'}
             </button>
             {cal?.enabled && <span className="text-[11.5px] text-slate-400">Rotating kills the old URL (audit-logged).</span>}
+          </div>
+
+          <div className="mt-3 border-t border-slate-200 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[13px] font-bold text-navy">Two-way write-back (Google)</div>
+                <p className="mt-0.5 text-[12px] text-slate-500 max-w-md">
+                  {gcal?.connected
+                    ? `Writing changes and freezes to Google calendar ${gcal.calendar_id ?? ''} — events appear on submit, update on reschedule, and disappear on cancel.`
+                    : 'Connect a shared Google calendar so submitted changes and freezes are written back as real events.'}
+                </p>
+              </div>
+              <Toggle on={Boolean(gcal?.connected)} />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {gcal?.connected ? (
+                <>
+                  <button className="btn btn-ghost !py-1.5 text-[12px]" disabled={gcalBusy} onClick={syncGoogleNow}>
+                    {gcalBusy ? 'Syncing…' : 'Sync now'}
+                  </button>
+                  <button className="btn btn-ghost !py-1.5 text-[12px] text-red-600" disabled={gcalBusy} onClick={disconnectGoogle}>
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn-primary !py-1.5 text-[12.5px]" disabled={gcalBusy || !gcal?.client_configured} onClick={connectGoogle}>
+                  {gcalBusy ? 'Connecting…' : 'Connect Google Calendar'}
+                </button>
+              )}
+              {gcal?.connected === false && !gcal?.client_configured && (
+                <span className="text-[11.5px] text-slate-400">
+                  Admin setup: set <code className="rounded bg-slate-100 px-1">GOOGLE_CLIENT_ID</code> /{' '}
+                  <code className="rounded bg-slate-100 px-1">GOOGLE_CLIENT_SECRET</code> (see README), then reconnect.
+                </span>
+              )}
+              {gcalMsg && <span className="text-[12px] font-medium text-slate-600">{gcalMsg}</span>}
+            </div>
           </div>
         </div>
 

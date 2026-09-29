@@ -74,6 +74,12 @@ EMAIL_FROM_ADDR = os.getenv("EMAIL_FROM_ADDR", "changes@ricozchange.dev")
 # Fallback webhook secret for repos without a per-connection secret.
 GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
 
+# Google Calendar two-way sync (v0.3, week 2). Optional; empty = read-only feed only.
+# OAuth client credentials from console.cloud.google.com (Calendar API enabled).
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")  # e.g. https://<host>/api/integrations/google/oauth/callback
+
 # Claude API for AI drafting. Without a key, template-based drafting is used.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")

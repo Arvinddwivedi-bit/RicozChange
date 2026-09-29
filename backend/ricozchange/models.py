@@ -330,6 +330,22 @@ class DeployLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class CalendarLink(Base):
+    """Link between a change and its Google Calendar event (two-way sync).
+
+    Created on first successful push; the google_event_id lets updates go to
+    the same event (PUT) and deletions remove it. Rows are removed when the
+    event is deleted.
+    """
+
+    __tablename__ = "calendar_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    change_id: Mapped[int] = mapped_column(ForeignKey("changes.id"), unique=True, index=True)
+    google_event_id: Mapped[str] = mapped_column(String(120), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class EmailInbound(Base):
     """One inbound email processed by the email-to-change pipeline.
 

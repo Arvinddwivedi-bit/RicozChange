@@ -142,7 +142,35 @@ implementing) and freezes (all-day events): **Integrations → Calendar feed →
 feed**, then paste the URL into Google Calendar (*Other calendars → From URL*) or Outlook
 (*Add calendar → Subscribe from web*). Events carry the risk score, class, status, systems and a
 deep link; UIDs are stable so updates replace events in place. Rotating the URL kills the old one
-(audit-logged). Two-way Google/Outlook write-back lands later in week 2.
+(audit-logged).
+
+## Two-way Google Calendar write-back (v0.3, week 2, part 2)
+
+Beyond the read-only feed, RicozChange can **write into a real Google calendar**. A manager or admin
+connects once (**Integrations → Calendar feed → Two-way write-back → Connect Google Calendar**);
+OAuth consent creates a dedicated *RicozChange* calendar and stores the refresh token in the
+settings table (no redeploy to reconnect). From then on:
+
+- Submitting a visible change (submitted / approved / implementing **with a window**) creates the event —
+  titled `[<RISK> <score>] <title>`, colored by status, with owner/systems/deep-link in the description.
+- Rescheduling from the change page updates the **same** event (no duplicates).
+- Cancelling or rejecting deletes the event; completed changes stay on the calendar for the record.
+- Freezes push as all-day `FREEZE:` events.
+- Pushes are best-effort: a Google outage never blocks the change workflow, and
+  **Sync now** (or `POST /api/integrations/google/sync`) backfills/retries everything.
+
+Setup (~5 minutes, one time): in [Google Cloud Console](https://console.cloud.google.com/) enable the
+**Calendar API**, create an **OAuth client ID** (type *Web application*) with redirect URI
+`https://<your-host>/api/integrations/google/oauth/callback`, then set:
+
+```
+GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=...
+# GOOGLE_REDIRECT_URI=...   # optional override; defaults to PUBLIC_BASE_URL + the callback path
+```
+
+Outlook (Microsoft Graph) write-back reuses the same link table and hooks; it lands in a later
+increment.
 
 ## Configuration (all optional)
 
@@ -153,6 +181,8 @@ Copy `backend/.env.example` → `.env`. Highlights:
 - `GATE_BY_DEMO_USER=true` + Clerk vars — real auth via Clerk JWKS; demo mode is single-user.
 - `ADMIN_EMAILS` — comma-separated emails that get an **admin account auto-provisioned** on first Clerk sign-in.
 - `SLACK_*` — the real Slack integration (see above); all empty = demo outbox only.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — two-way Google Calendar write-back (see above);
+  unset = the write-back UI shows a setup hint and the read-only .ics feed still works.
 
 ## Real sign-in (Clerk, ~10 minutes)
 

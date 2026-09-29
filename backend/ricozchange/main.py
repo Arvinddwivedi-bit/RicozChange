@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import calendar_app
+from . import calendar_sync
 from . import config, db as dbmod
 from . import services
 from . import auth as auth_mod
@@ -529,6 +530,14 @@ def patch_change(change_id: int, payload: ChangePatch, db: Session = Depends(dbm
     log_action(db, "change", change.id, "updated", actor=actor.name, detail=", ".join(sorted(data.keys())))
     db.commit()
     db.refresh(change)
+    # Two-way calendar: window/title edits propagate once the change is visible.
+    if change.status in calendar_sync.VISIBLE_STATUSES:
+        try:
+            calendar_sync.upsert_change_event(db, change)
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logging.getLogger("rico.calendar").exception("calendar push on patch failed")
     return serialize_change_detail(change)
 
 
@@ -542,6 +551,11 @@ def submit(change_id: int, db: Session = Depends(dbmod.get_db), actor: User = De
     if not change.systems:
         raise HTTPException(status_code=400, detail="Attach at least one affected system before submitting")
     result = services.submit_change(db, change, actor=actor.name)
+    # Two-way calendar: the event appears once the change is visible (best-effort).
+    try:
+        calendar_sync.upsert_change_event(db, change)
+    except Exception:  # noqa: BLE001 — calendar never blocks the workflow
+        logging.getLogger("rico.calendar").exception("calendar push on submit failed")
     db.commit()
     return result
 
@@ -557,6 +571,12 @@ def set_status(change_id: int, payload: StatusIn, db: Session = Depends(dbmod.ge
         raise HTTPException(status_code=409, detail=str(exc))
     if payload.status in ("completed", "failed"):
         change.post_change_prompted_at = datetime.now()
+    # Two-way calendar: cancelled/rejected events disappear; completed stay for the record.
+    if payload.status in ("cancelled", "rejected"):
+        try:
+            calendar_sync.delete_change_event(db, change.id)
+        except Exception:  # noqa: BLE001
+            logging.getLogger("rico.calendar").exception("calendar delete on %s failed", payload.status)
     db.commit()
     return serialize_change_detail(change)
 
@@ -1448,6 +1468,84 @@ def calendar_rotate(db: Session = Depends(dbmod.get_db), actor: User = Depends(r
         "enabled": True,
         "url": f"{config.PUBLIC_BASE_URL}/api/calendar/changes.ics?token={actor.calendar_token}",
     }
+
+
+# ---------- Google Calendar two-way write-back (v0.3, week 2 part 2) ----------
+
+@app.get("/api/integrations/google/status")
+def google_calendar_status(db: Session = Depends(dbmod.get_db)) -> dict:
+    connected = calendar_sync.is_connected(db)
+    out = {
+        "connected": connected,
+        "client_configured": bool(config.GOOGLE_CLIENT_ID and config.GOOGLE_CLIENT_SECRET),
+    }
+    if connected and config.GOOGLE_CLIENT_ID:
+        out["connect_url"] = calendar_sync.oauth_start_url(
+            config.GOOGLE_REDIRECT_URI
+            or f"{config.PUBLIC_BASE_URL}/api/integrations/google/oauth/callback"
+        )
+    s = calendar_sync.get_calendar_settings(db)
+    if connected:
+        out["calendar_id"] = s.get("calendar_id")
+        out["connected_at"] = s.get("connected_at")
+    return out
+
+
+@app.get("/api/integrations/google/connect")
+def google_calendar_connect(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> object:
+    if not (config.GOOGLE_CLIENT_ID and config.GOOGLE_CLIENT_SECRET):
+        raise HTTPException(status_code=501, detail="Google Calendar sync is not configured (set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)")
+    return RedirectResponse(calendar_sync.oauth_start_url(
+        config.GOOGLE_REDIRECT_URI
+        or f"{config.PUBLIC_BASE_URL}/api/integrations/google/oauth/callback"
+    ))
+
+
+@app.get("/api/integrations/google/oauth/callback")
+def google_calendar_callback(code: str = Query(...), db: Session = Depends(dbmod.get_db)) -> HTMLResponse:
+    try:
+        calendar_sync.exchange_code(
+            db, code,
+            config.GOOGLE_REDIRECT_URI
+            or f"{config.PUBLIC_BASE_URL}/api/integrations/google/oauth/callback",
+        )
+    except Exception as exc:  # noqa: BLE001 — show a friendly error page
+        logger = logging.getLogger("rico.calendar")
+        logger.warning("google oauth exchange failed: %s", exc)
+        db.rollback()
+        return HTMLResponse(
+            "<html><body style='font-family:sans-serif;text-align:center;padding-top:3rem'>"
+            f"<h2>Google connection failed</h2><p>{str(exc)[:200]}</p></body></html>"
+        )
+    log_action(db, "system", 0, "google_calendar_connected", actor="oauth", detail="two-way sync enabled")
+    db.commit()
+    # Initial backfill so the calendar is immediately useful.
+    try:
+        calendar_sync.sync_all_visible(db)
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding-top:3rem'>"
+        "<h2>RicozChange calendar sync is on</h2>"
+        "<p>Changes and freezes now push to the shared Google calendar automatically.</p></body></html>"
+    )
+
+
+@app.post("/api/integrations/google/disconnect")
+def google_calendar_disconnect(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> dict:
+    calendar_sync.save_calendar_settings(db, refresh_token="", calendar_id="")
+    log_action(db, "system", 0, "google_calendar_disconnected", actor=actor.name, detail="two-way sync disabled")
+    db.commit()
+    return {"connected": False}
+
+
+@app.post("/api/integrations/google/sync")
+def google_calendar_sync_now(db: Session = Depends(dbmod.get_db), actor: User = Depends(require_role("admin", "manager"))) -> dict:
+    """Manual backfill/retry: push every visible change and freeze."""
+    result = calendar_sync.sync_all_visible(db)
+    db.commit()
+    return result
 
 
 # ---------- static SPA (single-service deploy) ----------
