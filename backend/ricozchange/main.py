@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import secrets
+from typing import Literal
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from . import services
 from . import auth as auth_mod
 from . import email_app
 from . import github_app
+from . import leads
 from . import slack_app
 from . import teams_app
 from .rate_limit import rate_limit, webhook_limiter, simulate_limiter, sweep_limiter
@@ -223,6 +225,10 @@ class StatusIn(BaseModel):
 class ApprovalIn(BaseModel):
     decision: str
     comment: str = ""
+
+
+class LeadStatusIn(BaseModel):
+    status: Literal["new", "contacted", "closed"]
 
 
 class ApprovalsIn(BaseModel):
@@ -1653,6 +1659,33 @@ def google_calendar_sync_now(db: Session = Depends(dbmod.get_db), actor: User = 
     result = calendar_sync.sync_all_visible(db)
     db.commit()
     return result
+
+
+# ---------- Ricoz marketing-site leads (public form -> admin inbox) ----------
+
+
+@app.post("/api/leads", status_code=201)
+def api_submit_lead(payload: leads.LeadIn, request: Request, db: Session = Depends(dbmod.get_db)) -> dict:
+    """Public endpoint for the landing page inquiry form (throttled)."""
+    return leads.submit_lead(db, payload, request)
+
+
+@app.get("/api/leads")
+def api_list_leads(
+    db: Session = Depends(dbmod.get_db),
+    actor: User = Depends(require_role("admin")),
+) -> dict:
+    return leads.list_leads(db, actor)
+
+
+@app.patch("/api/leads/{lead_id}")
+def api_mark_lead(
+    lead_id: str,
+    payload: LeadStatusIn,
+    db: Session = Depends(dbmod.get_db),
+    actor: User = Depends(require_role("admin")),
+) -> dict:
+    return leads.mark_lead(db, lead_id, payload.status, actor)
 
 
 # ---------- static SPA (single-service deploy) ----------

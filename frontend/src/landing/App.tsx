@@ -407,10 +407,127 @@ const FAQS = [
   },
 ]
 
+/* ------------------------------------------------------------------ */
+/* Partner inquiry modal                                               */
+/* ------------------------------------------------------------------ */
+function PartnerModal({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', company: '', city: '', message: '' })
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  const [error, setError] = useState('')
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm({ ...form, [k]: e.target.value })
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setState('sending')
+    setError('')
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.status === 201) {
+        setState('done')
+      } else {
+        const body = await res.json().catch(() => null)
+        const detail = body?.detail
+        setError(
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail) && detail[0]?.msg
+              ? `${detail[0].msg.replace('Value error, ', '')}`
+              : 'Something went wrong. Please try again.',
+        )
+        setState('error')
+      }
+    } catch {
+      setError('Network error. Please try again.')
+      setState('error')
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="partner-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose} aria-label="Close">
+          <XIcon size={16} />
+        </button>
+        {state === 'done' ? (
+          <div className="modal-done">
+            <span className="modal-done-icon">✓</span>
+            <h3>Thank you — we've received your inquiry.</h3>
+            <p>
+              Our franchise team will reach out within 2 business days to discuss the opportunity,
+              investment requirements and next steps.
+            </p>
+            <button className="btn btn-primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <span className="eyebrow">Franchise Inquiry</span>
+            <h3 id="partner-modal-title">Become a Franchise Partner</h3>
+            <p className="modal-sub">
+              Tell us a little about yourself and your business — our franchise team will get back
+              to you within 2 business days.
+            </p>
+            <form onSubmit={submit}>
+              <div className="form-row">
+                <label>
+                  Full name
+                  <input required minLength={2} maxLength={120} value={form.name} onChange={set('name')} placeholder="Priya Sharma" />
+                </label>
+                <label>
+                  Work email
+                  <input required type="email" maxLength={200} value={form.email} onChange={set('email')} placeholder="priya@company.in" />
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Company
+                  <input required minLength={2} maxLength={120} value={form.company} onChange={set('company')} placeholder="Sharma IT Services" />
+                </label>
+                <label>
+                  City
+                  <input maxLength={80} value={form.city} onChange={set('city')} placeholder="Pune" />
+                </label>
+              </div>
+              <label>
+                Message
+                <textarea
+                  rows={4}
+                  maxLength={2000}
+                  value={form.message}
+                  onChange={set('message')}
+                  placeholder="Tell us about your business, the services you offer and the territory you're interested in."
+                />
+              </label>
+              {state === 'error' && <p className="form-error" role="alert">{error}</p>}
+              <button type="submit" className="btn btn-primary btn-block" disabled={state === 'sending'}>
+                {state === 'sending' ? 'Sending…' : 'Submit Inquiry'}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const [partnerOpen, setPartnerOpen] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -436,11 +553,19 @@ export default function App() {
             <a href="#contact" className="btn btn-outline">
               Get in Touch
             </a>
-            <a href="#partner" className="btn btn-primary">
+            <a
+              href="#partner"
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault()
+                setMenuOpen(false)
+                setPartnerOpen(true)
+              }}
+            >
               Become a Franchise Partner
             </a>
             <span className="header-divider" aria-hidden="true" />
-            <a href="#login" className="btn btn-ghost-red">
+            <a href="/login" className="btn btn-ghost-red">
               Franchise Login
             </a>
           </nav>
@@ -475,7 +600,14 @@ export default function App() {
             </Reveal>
             <Reveal delay={200}>
               <div className="hero-ctas">
-                <a href="#partner" className="btn btn-primary">
+                <a
+                  href="#partner"
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setPartnerOpen(true)
+                  }}
+                >
                   Become a Franchise Partner
                 </a>
                 <a href="#contact" className="btn btn-outline">
@@ -591,7 +723,14 @@ export default function App() {
                 Our franchise team is here to help you understand the opportunity, investment
                 requirements and growth potential.
               </p>
-              <a href="#partner" className="btn btn-primary">
+              <a
+                href="#partner"
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPartnerOpen(true)
+                }}
+              >
                 Talk to Our Franchise Team
               </a>
             </div>
@@ -677,6 +816,8 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {partnerOpen && <PartnerModal onClose={() => setPartnerOpen(false)} />}
     </>
   )
 }
