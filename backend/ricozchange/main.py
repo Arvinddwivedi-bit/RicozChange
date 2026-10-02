@@ -1666,6 +1666,8 @@ if SPA_DIR.is_dir() and (SPA_DIR / "index.html").exists():
     _SPA_ROOT = SPA_DIR.resolve()
     _INDEX = _SPA_ROOT / "index.html"
 
+    _LANDING = _SPA_ROOT / "landing.html"
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str) -> FileResponse:
         if full_path.startswith("api/"):
@@ -1673,4 +1675,6 @@ if SPA_DIR.is_dir() and (SPA_DIR / "index.html").exists():
         candidate = (SPA_DIR / full_path).resolve()
         if candidate.is_relative_to(_SPA_ROOT) and candidate.is_file():
             return FileResponse(candidate)
+        if _LANDING.is_file() and full_path == "landing":
+            return FileResponse(_LANDING)
         return FileResponse(_INDEX)
