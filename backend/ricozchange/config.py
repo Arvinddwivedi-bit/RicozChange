@@ -4,7 +4,12 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Read-only filesystem (e.g. serverless deploys): the SQLite default under
+    # DATA_DIR is unusable anyway, so a real DATABASE_URL must be provided.
+    pass
 
 
 def _bool(name: str, default: bool) -> bool:

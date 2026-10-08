@@ -61,7 +61,16 @@ from .risk_engine import (
     suggest_windows,
 )
 
-app = FastAPI(title="RicozChange API", version="0.1.0")
+# OpenAPI/docs live under /api so platform SPA rewrites (e.g. Vercel's
+# catch-all to index.html) can't shadow them - the function serves /api/*.
+app = FastAPI(
+    title="RicozChange API",
+    version="0.1.0",
+    lifespan=lifespan,
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
