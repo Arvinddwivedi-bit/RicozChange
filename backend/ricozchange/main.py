@@ -1682,7 +1682,7 @@ def api_submit_lead(payload: leads.LeadIn, request: Request, db: Session = Depen
 @app.get("/api/leads")
 def api_list_leads(
     db: Session = Depends(dbmod.get_db),
-    actor: User = Depends(require_role("admin")),
+    actor: User = Depends(leads.require_leader),
 ) -> dict:
     return leads.list_leads(db, actor)
 
@@ -1692,7 +1692,7 @@ def api_mark_lead(
     lead_id: str,
     payload: LeadStatusIn,
     db: Session = Depends(dbmod.get_db),
-    actor: User = Depends(require_role("admin")),
+    actor: User = Depends(leads.require_leader),
 ) -> dict:
     return leads.mark_lead(db, lead_id, payload.status, actor)
 

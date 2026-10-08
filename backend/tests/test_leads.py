@@ -9,12 +9,26 @@ from ricozchange import db as dbmod
 from ricozchange import leads
 from ricozchange.main import app
 
+_TEST_ADMIN_TOKEN = "test-leads-admin-token"
+
 
 @pytest.fixture()
 def client():
     with TestClient(app) as c:
         leads._RATE.clear()
         yield c
+
+
+def _admin_get(client: TestClient, path: str = "/api/leads"):
+    return client.get(path, headers={"Authorization": f"Bearer {_TEST_ADMIN_TOKEN}"})
+
+
+def _admin_patch(client: TestClient, lead_id: str, status: str):
+    return client.patch(
+        f"/api/leads/{lead_id}",
+        json={"status": status},
+        headers={"Authorization": f"Bearer {_TEST_ADMIN_TOKEN}"},
+    )
 
 
 def _submit(client: TestClient, **overrides) -> dict:
@@ -66,30 +80,53 @@ def test_lead_is_persisted(client):
         db.close()
 
 
-def test_list_requires_admin(client):
-    # Demo mode: the implicit actor is admin, so the list is readable.
-    res = client.get("/api/leads")
+def test_list_requires_admin(client, monkeypatch):
+    # Anonymous (demo-mode) requests are rejected even though the implicit
+    # actor would be admin — the leads inbox must stay private.
+    assert client.get("/api/leads").status_code == 401
+
+    # With LEADS_ADMIN_TOKEN set, that static bearer token acts as admin.
+    _submit(client)
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
+    res = _admin_get(client)
     assert res.status_code == 200
     body = res.json()
     assert body["new_count"] >= 1
     assert any(i["email"] == "priya@sharmait.in" for i in body["items"])
 
 
-def test_mark_lead_status_transition(client):
+def test_list_rejects_wrong_admin_token(client, monkeypatch):
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
+    assert (
+        client.get("/api/leads", headers={"Authorization": "Bearer wrong-token"}).status_code
+        == 401
+    )
+
+
+def test_mark_lead_status_transition(client, monkeypatch):
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
     _submit(client, email="mark@check.in")
-    body = client.get("/api/leads").json()
-    lead_id = body["items"][0]["id"]
-    res = client.patch(f"/api/leads/{lead_id}", json={"status": "contacted"})
+    lead_id = _admin_get(client).json()["items"][0]["id"]
+    res = _admin_patch(client, lead_id, "contacted")
     assert res.status_code == 200
-    items = client.get("/api/leads").json()["items"]
+    items = _admin_get(client).json()["items"]
     assert next(i for i in items if i["id"] == lead_id)["status"] == "contacted"
 
 
-def test_mark_lead_rejects_bad_status(client):
-    res = client.patch("/api/leads/lead_x", json={"status": "bogus"})
+def test_mark_lead_requires_admin(client, monkeypatch):
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
+    _submit(client, email="guard@check.in")
+    lead_id = _admin_get(client).json()["items"][0]["id"]
+    assert client.patch(f"/api/leads/{lead_id}", json={"status": "closed"}).status_code == 401
+
+
+def test_mark_lead_rejects_bad_status(client, monkeypatch):
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
+    res = _admin_patch(client, "lead_x", "bogus")
     assert res.status_code == 422
 
 
-def test_mark_lead_unknown_id_404(client):
-    res = client.patch("/api/leads/lead_missing", json={"status": "closed"})
+def test_mark_lead_unknown_id_404(client, monkeypatch):
+    monkeypatch.setenv("LEADS_ADMIN_TOKEN", _TEST_ADMIN_TOKEN)
+    res = _admin_patch(client, "lead_missing", "closed")
     assert res.status_code == 404

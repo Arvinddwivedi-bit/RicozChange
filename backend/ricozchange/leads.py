@@ -7,16 +7,22 @@ changes. Listing requires an admin session; submission is public but throttled.
 """
 from __future__ import annotations
 
+import os
 import re
+import secrets
 import time
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models
-from .auth import require_role
+from . import config, models
+from .auth import require_actor, require_role
+from .db import get_db
+from .models import User
 
 LEADS_KEY = "franchise_leads"
 MAX_LEADS = 200
@@ -28,6 +34,10 @@ _RATE_LIMIT = 5          # submissions
 _RATE_WINDOW = 3600.0    # per hour, per IP
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Bearer parser for the leads admin endpoints (independent of auth.py's, so
+# this module own its gate). auto_error=False: we raise 401 ourselves.
+_bearer = HTTPBearer(auto_error=False)
 
 
 class LeadIn(BaseModel):
@@ -81,6 +91,49 @@ def submit_lead(db: Session, payload: LeadIn, request: Request) -> dict:
         db.add(models.Setting(key=LEADS_KEY, value={"items": items}))
     db.commit()
     return {"ok": True, "id": lead["id"]}
+
+
+def require_leader(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    actor: User = Depends(require_actor),
+    db: Session = Depends(get_db),
+):
+    """Admin gate for the leads inbox that stays closed in demo mode.
+
+    The app's require_role("admin") is demo-friendly by design: with
+    GATE_BY_DEMO_USER=false every request acts as the seeded default user —
+    an admin — so the inbox would be publicly readable. This dependency
+    refuses requests without a matching LEADS_ADMIN_TOKEN bearer in that
+    mode (401). With Clerk auth enabled (GATE_BY_DEMO_USER=true), requests
+    must already be authenticated to resolve an actor (require_actor returns
+    401 otherwise); non-admins get the standard 403, audit-logged like other
+    role denials.
+    """
+    if not config.GATE_BY_DEMO_USER:
+        expected = os.getenv("LEADS_ADMIN_TOKEN", "")
+        token = credentials.credentials if credentials else ""
+        if expected and secrets.compare_digest(token.encode(), expected.encode()):
+            admin = db.execute(
+                select(User).where(User.role == "admin").order_by(User.id).limit(1)
+            ).scalars().first()
+            if admin is not None:
+                return admin
+        raise HTTPException(status_code=401, detail="Admin authorization required")
+    if actor.role != "admin":
+        from .audit import log_action
+
+        log_action(
+            db,
+            "auth",
+            0,
+            "denied",
+            actor=actor.name,
+            detail="leads admin API requires role 'admin'",
+        )
+        db.commit()
+        raise HTTPException(status_code=403, detail="Requires role: admin")
+    return actor
 
 
 def list_leads(db: Session, actor: object) -> dict:
