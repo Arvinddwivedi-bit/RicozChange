@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RicozChange — v0.3 Operations PRD</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    color: #1e293b;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    background: #fff;
+  }
+  .page { page-break-after: always; position: relative; padding: 58px 56px 64px; }
+  .page.last { page-break-after: auto; }
+  .foot {
+    position: absolute; bottom: 24px; left: 56px; right: 56px;
+    display: flex; justify-content: space-between;
+    font-size: 8pt; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px;
+  }
+  h1, h2, h3, h4 { font-family: "Segoe UI", Arial, sans-serif; color: #0f1d33; margin: 0; }
+
+  .cover { background: #0f1d33; color: #fff; display: flex; flex-direction: column; }
+  .cover .band { position: absolute; top: 0; left: 0; right: 0; height: 8px; background: #d4222c; }
+  .cover .top { margin-top: 70px; }
+  .logo { display: inline-flex; align-items: center; justify-content: center;
+          width: 56px; height: 56px; border-radius: 14px; background: #d4222c;
+          color: #fff; font-size: 30px; font-weight: 800; }
+  .brand { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-top: 14px; }
+  .brand b { color: #f2a3ab; font-weight: 800; }
+  .cover .sub { color: #8fa3bd; font-size: 11.5px; margin-top: 4px; letter-spacing: 0.4px; }
+  .cover h1 { color: #fff; font-size: 34px; line-height: 1.15; margin-top: 64px; max-width: 560px; }
+  .cover h1 span { color: #e96b77; }
+  .cover .tag { color: #b7c4d6; font-size: 12.5px; max-width: 480px; margin-top: 18px; }
+  .meta { margin-top: 58px; display: flex; gap: 40px; }
+  .meta div { font-size: 10.5px; color: #8fa3bd; }
+  .meta div b { display: block; color: #fff; font-size: 12.5px; margin-top: 3px; font-weight: 600; }
+  .cover .foot { border-top: 1px solid #24354d; color: #64748b; }
+
+  .kicker { color: #d4222c; font-size: 8.5pt; font-weight: 700; letter-spacing: 1.6px; margin-bottom: 6px; }
+  h2 { font-size: 17pt; letter-spacing: -0.3px; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; margin-bottom: 14px; }
+  h3 { font-size: 11.5pt; margin: 12px 0 5px; }
+  p { margin: 6px 0; }
+  .lead { font-size: 11.5pt; color: #334155; }
+  .oneliner {
+    margin: 14px 0; padding: 12px 16px; border-left: 4px solid #d4222c;
+    background: #fdf2f3; border-radius: 0 10px 10px 0; font-size: 11.5pt; color: #0f1d33; font-weight: 600;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9pt; }
+  th { text-align: left; background: #0f1d33; color: #fff; padding: 6px 10px; font-weight: 600; font-size: 8.2pt;
+       letter-spacing: 0.4px; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e8edf3; vertical-align: top; line-height: 1.45; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  td b { color: #0f1d33; }
+  .ok { color: #15803d; font-weight: 700; }
+  ul { margin: 5px 0 9px; padding-left: 18px; }
+  li { margin: 2.5px 0; }
+  ol { margin: 5px 0 9px; padding-left: 20px; }
+  code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 1px 5px; font-size: 8.8pt; }
+  .callout { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 14px; margin: 9px 0; font-size: 9.3pt; }
+  .callout.red { background: #fdf2f3; border-color: #f9ccd1; }
+  .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 12px 0 4px; }
+  .step { display: flex; gap: 10px; align-items: flex-start; background: #f8fafc;
+          border: 1px solid #e2e8f0; border-radius: 10px; padding: 7px 11px; }
+  .step .n { min-width: 22px; height: 22px; border-radius: 7px; background: #d4222c; color: #fff;
+             font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .step b { color: #0f1d33; font-size: 9.5pt; }
+  .step div { font-size: 8.8pt; color: #475569; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="page cover">
+  <div class="band"></div>
+  <div class="top">
+    <div class="logo">R</div>
+    <div class="brand">Ricoz<b>Change</b></div>
+    <div class="sub">AI-NATIVE CHANGE MANAGEMENT</div>
+  </div>
+  <h1>v0.3 “Operations” —<br><span>Product PRD</span></h1>
+  <div class="tag">Four weeks to make RicozChange infrastructure: deploys that become changes by
+  themselves, freezes on every calendar, approvals in Microsoft Teams, and the metrics a head of
+  engineering screenshots for their boss.</div>
+  <div class="meta">
+    <div>VERSION<b>v0.3 (Operations)</b></div>
+    <div>TIMELINE<b>4 weeks · 1 dev + AI agents</b></div>
+    <div>DATE<b>September 27, 2026</b></div>
+    <div>BASELINE<b>v0.2 complete — auth, Slack, email, hardening</b></div>
+  </div>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>Confidential — internal team document</span></div>
+</div>
+
+<!-- ================= 1-2 ================= -->
+<div class="page">
+  <div class="kicker">01</div>
+  <h2>Why v0.3 exists</h2>
+  <p class="lead">v0.2 made RicozChange something a real team can run its week on. v0.3 makes it
+  <b>infrastructure</b>: the product stops being a place people <i>fill in</i> and becomes a system
+  that <i>watches the deployment pipeline</i>, talks to the calendars people already live in, meets
+  Windows-heavy enterprises on Microsoft Teams, and produces the metrics a head of engineering
+  screenshots for their boss.</p>
+
+  <h3>Four features, one per week</h3>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><b>Deploy-as-change</b><br>A production deploy auto-creates the change request. Zero data entry.</div></div>
+    <div class="step"><div class="n">2</div><div><b>Calendar sync</b><br>Freezes and change windows live on the calendars people already check.</div></div>
+    <div class="step"><div class="n">3</div><div><b>Microsoft Teams</b><br>Same approval cards as Slack, for the enterprise half of the market.</div></div>
+    <div class="step"><div class="n">4</div><div><b>DORA-style analytics</b><br>CFR, approval latency, MTTR by team/system — exportable.</div></div>
+  </div>
+
+  <h3>Goals</h3>
+  <ul>
+    <li>A push to <code>main</code> on a connected repo becomes a scored, collision-checked change with no human filling any form — and the deploy status records the outcome.</li>
+    <li>Freeze windows subscribe-able as an .ics feed; two-way write to Google Calendar / Outlook.</li>
+    <li>Teams approval cards with the same any-of policy, identity mapping and audit trail as Slack.</li>
+    <li>A metrics dashboard with CSV export, computed entirely from existing data.</li>
+  </ul>
+
+  <h3>Non-goals (explicitly deferred)</h3>
+  <p>Multi-workspace Slack, Jira/ServiceNow sync, learned ML risk weights, mobile push,
+  billing/seats and the compliance pack (v1.0), on-prem installs.</p>
+
+  <h3>Where v0.2 left us</h3>
+  <table>
+    <tr><th style="width:34%">Already shipped</th><th>What it gives v0.3</th></tr>
+    <tr><td>Clerk sign-in + server-enforced roles</td><td>Real identity on every new surface</td></tr>
+    <tr><td>Slack approvals (OAuth, signed callbacks, idempotent buttons)</td><td>The exact pattern Teams ports in week 3</td></tr>
+    <tr><td>Email-to-change + automated sweeps</td><td>Parser, dedupe and fallback-chain patterns to reuse</td></tr>
+    <tr><td>Rate limiting, logging, background sweep, smoke test</td><td>Hardening already in place for three new webhooks</td></tr>
+    <tr><td>67 passing tests + <code>scripts/smoke.py</code></td><td>Regression safety while internals get rewired</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>2 / 6</span></div>
+</div>
+
+<!-- ================= FEATURE 1 ================= -->
+<div class="page">
+  <div class="kicker">02 · WEEK 1</div>
+  <h2>Deploy-as-change — the flagship</h2>
+  <p class="lead">A push to production on a connected repo <b>becomes</b> a change request: scored,
+  collision-checked, approved if risky, and its outcome recorded when the deploy finishes.
+  Engineers never fill the form.</p>
+
+  <h3>User stories</h3>
+  <ul>
+    <li>As an engineer, when I deploy to production from GitHub Actions, a change request appears with the commit/PR linked — I never fill the form.</li>
+    <li>As an approver, the auto-created change goes through the same scoring, collision detection and (if risky) the same Slack/email approval flow as a hand-filed change.</li>
+    <li>As an owner, when the deploy job finishes, the outcome (success/failed) is recorded from the deploy status — CFR feeds itself.</li>
+  </ul>
+
+  <h3>Technical design</h3>
+  <table>
+    <tr><th style="width:30%">Piece</th><th>Design</th></tr>
+    <tr><td><b>Webhook</b></td><td><code>POST /api/integrations/github/webhook</code> — HMAC <code>X-Hub-Signature-256</code> verification, reuses the existing rate limiter; <code>workflow_run</code> / <code>deployment</code> events only.</td></tr>
+    <tr><td><b>Repo connections</b></td><td>New <code>github_connections</code> table (repo, default systems, auto-submit threshold, secret) + admin UI on the Integrations page.</td></tr>
+    <tr><td><b>Mapping rules</b></td><td>Deploy env <code>production</code> → change type from changed paths / commit scope (fallback <code>normal</code>); deploy ref + run URL → description; deployer email → owner via existing email matching.</td></tr>
+    <tr><td><b>Outcome loop</b></td><td>Deploy completes → <code>record_post_change(success|failed)</code> from the <code>workflow_run</code> conclusion — the "did it work?" loop closes itself for deploys.</td></tr>
+    <tr><td><b>Idempotency</b></td><td>Unique <code>delivery_id</code> per event — same pattern as the email <code>Message-ID</code> dedupe.</td></tr>
+    <tr><td><b>Duplicate safety</b></td><td>A deploy matching an open human-filed change on the same systems links to it instead of creating a duplicate.</td></tr>
+  </table>
+
+  <h3>Acceptance criteria</h3>
+  <ol>
+    <li>Push to a connected repo → change created within 10 s, scored, systems attached, owner mapped.</li>
+    <li>Risky auto-change → approvers get the same Slack DM with the "why".</li>
+    <li>Deploy failure → <code>post_change_result=failed</code>; the CFR dashboard moves.</li>
+    <li>Replayed webhook delivery → no duplicate change.</li>
+    <li>Invalid signature → 401 + audit entry.</li>
+  </ol>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>3 / 6</span></div>
+</div>
+
+<!-- ================= FEATURES 2+3 ================= -->
+<div class="page">
+  <div class="kicker">03 · WEEKS 2–3</div>
+  <h2>Calendar sync &amp; Microsoft Teams</h2>
+
+  <h3>Calendar sync (week 2)</h3>
+  <p class="lead">Freezes and change windows appear on the calendars people already check.</p>
+  <ul>
+    <li><b>Read-only out (day 1):</b> <code>GET /api/calendar/changes.ics</code> — RFC 5545 feed of change windows + freezes, token-authenticated per user (<code>users.calendar_token</code>, refreshable). No external dependencies — this alone delivers most of the value.</li>
+    <li><b>Two-way write (rest of week):</b> Google Calendar API + Microsoft Graph (OAuth; tokens in the <code>settings</code> table — same pattern as the Slack bot token). Changes create events; freezes create all-day events. Calendar errors never block the workflow (logged, retried by the existing sweep pattern).</li>
+    <li><b>Propagation:</b> editing a change's window updates the linked event (<code>calendar_event_id</code> stored on the change).</li>
+  </ul>
+  <table>
+    <tr><th style="width:60%">Acceptance criterion</th><th>Demo gate</th></tr>
+    <tr><td>.ics URL subscribes in Google Calendar and Outlook; events show window + risk</td><td rowspan="4">Change appears in a real calendar within 60 s; old token dies on rotation; calendar outage breaks nothing</td></tr>
+    <tr><td>Rotating the token kills the old URL (audit-logged)</td></tr>
+    <tr><td>A submitted change appears in the connected calendar within 60 s</td></tr>
+    <tr><td>Calendar outage → nothing in the change workflow breaks</td></tr>
+  </table>
+
+  <h3>Microsoft Teams (week 3)</h3>
+  <p class="lead">The Slack approval experience, ported — same policy, same audit, new transport.</p>
+  <ul>
+    <li>Azure Bot registration + Bot Framework; <code>POST /api/teams/interactions</code> validates the bot token against Azure's published OpenID metadata (cached) — the Slack-signature pattern ported.</li>
+    <li>Outbound proactive messages reuse the existing outbox shape (<code>Notification.kind="teams"</code>) so the Approvals page renders Teams rows without new frontend logic.</li>
+    <li>Identity: <code>users.teams_id</code>; same email auto-link + ephemeral fallback as Slack.</li>
+    <li>Any-of policy, idempotency keys and delivery audit are literally the same service calls. Teams outage → the email fallback chain already built in v0.2.</li>
+  </ul>
+  <table>
+    <tr><th style="width:60%">Acceptance criterion</th><th>Demo gate</th></tr>
+    <tr><td>Approve from a phone in Teams in &lt; 30 s; duplicate clicks never double-apply</td><td rowspan="3">Teams approval on a phone in &lt; 30 s; invalid token → 401 + audit; outage → email fallback</td></tr>
+    <tr><td>Both approvers' cards close correctly under any-of (one approves, other superseded)</td></tr>
+    <tr><td>Invalid bot token → 401 + audit entry; Teams outage → email fallback fires</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>4 / 6</span></div>
+</div>
+
+<!-- ================= FEATURE 4 + PLAN ================= -->
+<div class="page">
+  <div class="kicker">04 · WEEK 4</div>
+  <h2>DORA-style analytics &amp; the plan</h2>
+
+  <h3>Analytics (week 4)</h3>
+  <p class="lead">The dashboard a head of engineering screenshots for their boss.</p>
+  <table>
+    <tr><th style="width:30%">Metric</th><th>Definition (fixed here, printed on the page)</th></tr>
+    <tr><td><b>Change failure rate</b></td><td>Failed + partial post-change results ÷ all recorded results (exists — extended with grouping)</td></tr>
+    <tr><td><b>Lead time to approve</b></td><td>Median: change created → approved</td></tr>
+    <tr><td><b>Approval latency</b></td><td>Median: submitted → decided</td></tr>
+    <tr><td><b>MTTR</b></td><td>For failed changes: window end → the follow-up change recording success</td></tr>
+    <tr><td><b>Volume &amp; risk mix</b></td><td>Changes per week by class; share of standard/normal/major/emergency</td></tr>
+  </table>
+  <ul>
+    <li><code>GET /api/analytics?from&amp;to&amp;group_by=system|team</code> — all computed from existing tables; schema change is indexes only.</li>
+    <li>Frontend: an <b>Analytics</b> page under Operate using the existing chart components; date-range picker; <code>GET /api/analytics/export.csv</code> reusing the importer's CSV conventions (Excel-clean).</li>
+    <li>Aggregate-only for non-admins (per-team visibility rules arrive with v1.0 workspaces).</li>
+  </ul>
+
+  <h3>Week-by-week plan</h3>
+  <table>
+    <tr><th style="width:10%">Week</th><th style="width:44%">Deliverable</th><th>Demo gate</th></tr>
+    <tr><td><b>1</b></td><td>GitHub webhook, repo connections, auto-scoring, deploy-outcome loop</td><td>Push to a sample repo → scored change → Slack approval → deploy status records the outcome, no form touched</td></tr>
+    <tr><td><b>2</b></td><td>.ics feeds (day 1), Google/Outlook two-way sync, token rotation</td><td>Change appears in a real calendar within 60 s; old token dies on rotation</td></tr>
+    <tr><td><b>3</b></td><td>Teams app, approval cards, identity mapping, fallback chain</td><td>Approve from Teams on a phone in &lt; 30 s; duplicates idempotent</td></tr>
+    <tr><td><b>4</b></td><td>Analytics API + page + CSV export, hardening, E2E smoke extension, docs</td><td>Manager demo: push → auto-change → Teams approval → CFR moves on the analytics page</td></tr>
+  </table>
+  <div class="callout"><b>Effort:</b> W1 ~7 dev-days · W2 ~5 · W3 ~6 · W4 ~4 (solo + AI agents, tests included).</div>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>5 / 6</span></div>
+</div>
+
+<!-- ================= RISKS ================= -->
+<div class="page last">
+  <div class="kicker">05</div>
+  <h2>Risks, success metrics &amp; what's deferred</h2>
+
+  <h3>Top risks and mitigations</h3>
+  <table>
+    <tr><th style="width:34%">Risk</th><th>Mitigation</th></tr>
+    <tr><td>GitHub event variety (rename, re-run, skipped runs)</td><td>Only two event types; unique <code>delivery_id</code>; unknown payloads rejected with 4xx, never 500</td></tr>
+    <tr><td>Calendar APIs eat the week</td><td>Ship the .ics feed on day 1 — value exists even if OAuth write slips; two-way is a bonus</td></tr>
+    <tr><td>Azure bot registration friction (tenant, consent)</td><td>Start registration in week 1 in parallel; demo on the Bot Framework Emulator until tenant consent lands</td></tr>
+    <tr><td>Metric definitions argued about</td><td>Definitions fixed in this PRD and printed on the Analytics page itself</td></tr>
+    <tr><td>Webhook attack surface grows</td><td>Every new webhook: signature verification + the existing rate limiter + idempotency — same as email</td></tr>
+  </table>
+
+  <h3>Success metrics (30 days after rollout)</h3>
+  <ul>
+    <li>≥ 30% of changes auto-created from deploys; time-to-file &lt; 30 s for deploy changes</li>
+    <li>≥ 1 external calendar subscriber per team; zero workflow incidents caused by calendar outages</li>
+    <li>≥ 20% of approvals decided from Teams in Teams-first shops</li>
+    <li>The analytics page becomes the most-screenshotted page in manager demos</li>
+  </ul>
+
+  <h3>Deliberately deferred</h3>
+  <p>Billing/seats, compliance pack, SSO hardening, workspaces with per-team visibility, ML risk
+  weights, Jira/ServiceNow sync, mobile push — v1.0 candidates; none block the operations story.</p>
+
+  <h3>The version ladder, updated</h3>
+  <table>
+    <tr><th style="width:14%">Version</th><th style="width:22%">Theme</th><th>State</th></tr>
+    <tr><td><b>v0.2</b></td><td>"Real team"</td><td><span class="ok">Shipped:</span> sign-in &amp; roles, Slack, email, hardening, smoke test</td></tr>
+    <tr><td><b>v0.3</b></td><td>"Operations"</td><td><b>This PRD:</b> deploy-as-change, calendar, Teams, analytics — 4 weeks</td></tr>
+    <tr><td><b>v1.0</b></td><td>"Pilot — sellable"</td><td>Compliance pack, billing, SSO hardening, onboarding wizard (~6 weeks after v0.3)</td></tr>
+  </table>
+  <div class="foot"><span>RicozChange · v0.3 Operations PRD</span><span>6 / 6</span></div>
+</div>
+
+</body>
+</html>

@@ -1,5 +1,8 @@
 # RicozChange
 
+[![CI](https://github.com/Arvinddwivedi-bit/RicozChange/actions/workflows/ci.yml/badge.svg)](https://github.com/Arvinddwivedi-bit/RicozChange/actions)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
 AI-native IT change management — MVP. FastAPI + SQLite backend, React + Vite frontend.
 
 ## What makes it different

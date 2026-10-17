@@ -1,6 +1,12 @@
 """Configuration. Everything is env-driven with demo-friendly defaults."""
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from project root (backend/.env or project root .env)
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path, override=False)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type ChangeT } from '../api'
+import { Search, Upload, Plus, FileX } from 'lucide-react'
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 import { ChangeRowMeta, ScoreBadge, StatusBadge, TypeBadge } from '../components/Components'
 
@@ -29,7 +30,10 @@ export default function Changes() {
     if (!file) return
     const form = new FormData()
     form.append('file', file)
-    const res = await fetch(API_BASE + '/api/changes/import-csv', { method: 'POST', body: form })
+    const token = await (window as any).__RC_AUTH__?.getToken?.()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(API_BASE + '/api/changes/import-csv', { method: 'POST', headers, body: form })
     const data = await res.json()
     if (res.ok) {
       setImportMsg(`Imported ${data.created} change(s)` + (data.errors.length ? ` · ${data.errors.length} row(s) skipped: ${data.errors[0]}` : ''))
@@ -55,9 +59,11 @@ export default function Changes() {
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onImport} />
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
+            <Upload className="w-4 h-4 mr-2" />
             Import CSV
           </button>
           <Link to="/changes/new" className="btn btn-primary">
+            <Plus className="w-4 h-4 mr-2" />
             New Change
           </Link>
         </div>
@@ -75,38 +81,71 @@ export default function Changes() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-              status === s ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              status === s ? 'bg-brand-600 text-white shadow-sm ring-1 ring-brand-600' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             {s}
           </button>
         ))}
-        <input className="input ml-auto max-w-xs" placeholder="Search title or system…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="relative ml-auto w-full max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input className="input w-full pl-9" placeholder="Search title or system…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
       </div>
 
       <div className="card divide-y divide-slate-100">
-        {filtered.length === 0 && <div className="p-6 text-sm text-slate-500">No changes match.</div>}
-        {filtered.map((c) => (
-          <Link key={c.id} to={`/changes/${c.id}`} className="block p-4 hover:bg-slate-50">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <ScoreBadge score={c.risk_score} />
-                <span className="font-semibold truncate">#{c.id} · {c.title}</span>
+        {changes === null ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 w-1/2">
+                  <div className="w-10 h-6 skeleton rounded-full" />
+                  <div className="h-5 skeleton rounded-md w-3/4" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-6 skeleton rounded-full" />
+                  <div className="w-20 h-6 skeleton rounded-full" />
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <TypeBadge type={c.risk_type} />
-                <StatusBadge status={c.status} />
-              </div>
+              <div className="h-4 skeleton rounded-md w-1/3 mt-2" />
             </div>
-            <ChangeRowMeta change={c} />
-            {c.post_change_result && (
-              <div className="mt-1 text-xs font-medium text-slate-600">
-                Post-change check: <span className={c.post_change_result === 'success' ? 'text-emerald-600' : 'text-red-600'}>{c.post_change_result}</span>
-              </div>
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+              <FileX className="w-6 h-6 text-slate-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-900">No changes found</h3>
+            <p className="mt-1 text-sm text-slate-500 max-w-sm">We couldn't find any changes matching your search or filters.</p>
+            {q !== '' || status !== 'all' ? (
+              <button onClick={() => { setQ(''); setStatus('all'); }} className="mt-4 text-sm font-medium text-brand-600 hover:text-brand-700">Clear filters</button>
+            ) : (
+              <Link to="/changes/new" className="mt-4 btn btn-ghost text-sm">Create your first change</Link>
             )}
-          </Link>
-        ))}
+          </div>
+        ) : (
+          filtered.map((c) => (
+            <Link key={c.id} to={`/changes/${c.id}`} className="block p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <ScoreBadge score={c.risk_score} />
+                  <span className="font-semibold truncate">#{c.id} · {c.title}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <TypeBadge type={c.risk_type} />
+                  <StatusBadge status={c.status} />
+                </div>
+              </div>
+              <ChangeRowMeta change={c} />
+              {c.post_change_result && (
+                <div className="mt-1 text-xs font-medium text-slate-600">
+                  Post-change check: <span className={c.post_change_result === 'success' ? 'text-emerald-600' : 'text-red-600'}>{c.post_change_result}</span>
+                </div>
+              )}
+            </Link>
+          ))
+        )}
       </div>
     </div>
   )

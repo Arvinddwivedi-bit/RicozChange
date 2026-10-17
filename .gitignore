@@ -16,3 +16,6 @@ data/
 
 # Env
 .env
+
+.vercel
+.env*

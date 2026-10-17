@@ -10,6 +10,7 @@ from typing import Literal
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles  # noqa: F401  (kept for future asset serving)
@@ -61,8 +62,42 @@ from .risk_engine import (
     suggest_windows,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _apply_threadpool_tokens()
+    _run_migrations()
+    dbmod.init_db()
+    if config.AUTO_SEED:
+        db = dbmod.SessionLocal()
+        try:
+            services.seed_demo_data(db)
+        finally:
+            db.close()
+    loop_task = None
+    if SWEEP_INTERVAL_SECONDS > 0:
+        async def _loop() -> None:
+            log = logging.getLogger("rico.email")
+            while True:
+                await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
+                try:
+                    db = dbmod.SessionLocal()
+                    try:
+                        counts = email_app.run_email_sweep(db)
+                        db.commit()
+                        if any(counts.values()):
+                            log.info("background sweep: %s", counts)
+                    finally:
+                        db.close()
+                except Exception:
+                    log.exception("background sweep failed")
+        loop_task = asyncio.create_task(_loop())
+    yield
+    if loop_task:
+        loop_task.cancel()
+
 # OpenAPI/docs live under /api so platform SPA rewrites (e.g. Vercel's
-# catch-all to index.html) can't shadow them - the function serves /api/*.
+# catch-all to index.html) can't shadow them — the function serves /api/*.
 app = FastAPI(
     title="RicozChange API",
     version="0.1.0",
@@ -81,8 +116,6 @@ app.add_middleware(
 )
 
 # ---------- logging (phase-2 week 4 hygiene) ----------
-# One consistent format for app loggers; delivery paths log failures with
-# context instead of failing silently. LOG_LEVEL overrides (default INFO).
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -90,14 +123,9 @@ logging.basicConfig(
 logging.getLogger("rico").setLevel(logging.INFO)
 
 # Background email sweep: only runs when EMAIL_SWEEP_SECONDS > 0
-# (Render sets 300; local/demo stays manual via POST /api/integrations/email/sweep).
 SWEEP_INTERVAL_SECONDS = int(os.getenv("EMAIL_SWEEP_SECONDS", "0") or "0")
 
-# Thread-pool size for sync endpoints (SQLAlchemy blocking calls). FastAPI/anyio
-# defaults to 40 worker threads: beyond that, requests queue behind the pool and
-# time out under load. Sized from THREADPOOL_TOKENS (default 200) — every sync
-# route blocks a thread for its DB work, so this is the real concurrency cap.
-# Applied at startup (needs a running event loop; TestClient provides one).
+# Thread-pool size for sync endpoints (SQLAlchemy blocking calls).
 THREADPOOL_TOKENS = int(os.getenv("THREADPOOL_TOKENS", "200"))
 
 
@@ -107,48 +135,8 @@ def _apply_threadpool_tokens() -> None:
 
         to_thread.current_default_thread_limiter().total_tokens = THREADPOOL_TOKENS
         logging.getLogger("rico").info("thread-pool tokens: %d", THREADPOOL_TOKENS)
-    except Exception as exc:  # noqa: BLE001 — never block startup over this
+    except Exception as exc:  # noqa: BLE001
         logging.getLogger("rico").warning("could not size thread pool: %s", exc)
-
-
-@app.on_event("startup")
-async def start_sweep_loop() -> None:
-    _apply_threadpool_tokens()
-    if SWEEP_INTERVAL_SECONDS <= 0:
-        return
-
-    async def _loop() -> None:
-        log = logging.getLogger("rico.email")
-        while True:
-            await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
-            try:
-                db = dbmod.SessionLocal()
-                try:
-                    counts = email_app.run_email_sweep(db)
-                    db.commit()
-                    if any(counts.values()):
-                        log.info("background sweep: %s", counts)
-                finally:
-                    db.close()
-            except Exception:  # noqa: BLE001 — the loop must survive anything
-                log.exception("background sweep failed")
-
-    asyncio.create_task(_loop())
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    # Migrate BEFORE create_all: on an existing database, create_all would
-    # create brand-new tables (e.g. `settings`) that the next migration then
-    # tries to create again. Migrating first keeps them from racing.
-    _run_migrations()
-    dbmod.init_db()
-    if config.AUTO_SEED:
-        db = dbmod.SessionLocal()
-        try:
-            services.seed_demo_data(db)
-        finally:
-            db.close()
 
 
 def _run_migrations() -> None:
@@ -232,8 +220,8 @@ class StatusIn(BaseModel):
 
 
 class ApprovalIn(BaseModel):
-    decision: str
-    comment: str = ""
+    decision: Literal["approve", "reject"]
+    note: str = ""
 
 
 class LeadStatusIn(BaseModel):
@@ -688,7 +676,7 @@ def import_csv(file: UploadFile = File(...), db: Session = Depends(dbmod.get_db)
 
 # ---------- simulator ----------
 
-@app.post("/api/simulate")
+@app.post("/api/simulate", dependencies=[Depends(rate_limit(simulate_limiter, "simulate"))])
 def simulate(payload: SimulatorIn, db: Session = Depends(dbmod.get_db)) -> dict:
     nodes = db.execute(select(SystemNode).where(SystemNode.key.in_(payload.system_keys))).scalars().all()
     score, factors = evaluate_change(

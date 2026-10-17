@@ -10,4 +10,6 @@ COPY alembic.ini ./alembic.ini
 ENV AUTO_SEED=1
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "ricozchange.main:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+CMD ["python", "-m", "uvicorn", "ricozchange.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

@@ -20,19 +20,23 @@ from .db import get_db
 from .models import User
 
 _bearer = HTTPBearer(auto_error=False)
-_jwks_cache: dict | None = None
-_clerk_email_cache: dict[str, str] = {}
+import time
 
+_jwks_cache: dict | None = None
+_jwks_cache_time = 0
 
 def _fetch_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is None:
+    global _jwks_cache, _jwks_cache_time
+    if _jwks_cache is None or time.time() - _jwks_cache_time > 3600:
         if not config.CLERK_JWKS_URL:
             raise HTTPException(status_code=500, detail="CLERK_JWKS_URL is not configured")
         resp = requests.get(config.CLERK_JWKS_URL, timeout=10)
         resp.raise_for_status()
         _jwks_cache = resp.json()
+        _jwks_cache_time = time.time()
     return _jwks_cache
+
+_clerk_email_cache: dict[str, str] = {}
 
 
 def _user_from_email(db: Session, email: str, clerk_subject: str | None = None) -> User:

@@ -344,7 +344,7 @@ def run_email_sweep(db: Session) -> dict:
             change.post_change_prompted_at = now
             counts["post_change_prompts"] += 1
         db.flush()
-    except Exception:  # noqa: BLE001 — sweep stages must never break each other
+    except Exception as exc:  # noqa: BLE001 — sweep stages must never break each other
         db.rollback()
         logger.exception("email sweep: post-change prompt stage failed")
 

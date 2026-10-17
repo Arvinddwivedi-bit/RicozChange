@@ -1,9 +1,10 @@
-import { Loading } from '../App'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type ChangeT } from '../api'
 import { ChangeRowMeta, ScoreBadge, StatusBadge, TypeBadge } from '../components/Components'
 import { CfrLine, SystemHeat, TypeDonut, VolumeBars, type Trends } from '../components/Charts'
+import { Activity, AlertTriangle, CheckCircle2, Clock, FileText, Plus, AlertCircle, FileX } from 'lucide-react'
+import clsx from 'clsx'
 
 interface Dash {
   total_changes: number
@@ -17,12 +18,50 @@ interface Dash {
 
 export default function Dashboard() {
   const [data, setData] = useState<Dash | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api<Dash>('/api/dashboard').then(setData)
+    api<Dash>('/api/dashboard')
+      .then(setData)
+      .catch((err) => setError(err.message || 'Failed to load dashboard data'))
   }, [])
 
-  if (!data) return <Loading />
+  if (error) {
+    return (
+      <div className="p-8 max-w-[1400px]">
+        <div className="rounded-lg bg-red-50 p-4 border border-red-200 flex items-start gap-3 text-red-800">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600" />
+          <div>
+            <h3 className="font-semibold text-sm">Dashboard Error</h3>
+            <p className="text-sm mt-1">{error}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="p-8 space-y-6 max-w-[1400px]">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-4 skeleton rounded w-32" />
+            <div className="h-8 skeleton rounded w-48" />
+            <div className="h-4 skeleton rounded w-64" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card p-4 h-28 skeleton rounded-xl" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+           <div className="card p-5 h-64 skeleton rounded-xl" />
+           <div className="card p-5 h-64 skeleton rounded-xl" />
+        </div>
+      </div>
+    )
+  }
 
   const cfr = data.cfr.failure_rate_pct
   const cfrTone = cfr >= 20 ? 'text-red-600' : cfr >= 10 ? 'text-amber-600' : 'text-emerald-600'
@@ -30,26 +69,32 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 space-y-6 max-w-[1400px]">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 md:flex-nowrap">
         <div>
           <div className="eyebrow">Operate With Confidence</div>
           <h1 className="page-title">Change Overview</h1>
           <p className="mt-1 text-[13.5px] text-slate-500 max-w-lg">Every change, approval and outcome across your estate — live, scored and auditable.</p>
         </div>
         <Link to="/changes?new=1" className="btn btn-primary shrink-0">
+          <Plus className="w-4 h-4 mr-2" />
           New Change
         </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Total Changes" value={data.total_changes} />
-        <Kpi label="Pending Approvals" value={data.pending_approvals} accent="text-sky-600" />
-        <Kpi label="In Flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-brand-600" />
-        <div className="card p-4">
-          <div className="metric-label">Change Failure Rate</div>
-          <div className={`mt-1 hero-stat !text-[2rem] ${cfrTone}`}>{cfr}%</div>
-          <div className="mt-1 text-xs text-slate-500">
-            {data.cfr.failed + data.cfr.partial} of {data.cfr.total} outcomes failed or partial
+        <Kpi label="Total Changes" value={data.total_changes} icon={FileText} />
+        <Kpi label="Pending Approvals" value={data.pending_approvals} accent="text-sky-600" icon={Clock} />
+        <Kpi label="In Flight" value={(data.by_status['submitted'] ?? 0) + (data.by_status['approved'] ?? 0) + (data.by_status['implementing'] ?? 0)} accent="text-brand-600" icon={Activity} />
+        <div className="card p-4 flex flex-col justify-between min-w-0">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={clsx("w-4 h-4 shrink-0", cfrTone)} />
+            <div className="metric-label truncate">Change Failure Rate</div>
+          </div>
+          <div className="mt-2">
+            <div className={`hero-stat !text-[2rem] ${cfrTone}`}>{cfr}%</div>
+            <div className="mt-1 text-xs text-slate-500 truncate">
+              {data.cfr.failed + data.cfr.partial} of {data.cfr.total} outcomes failed or partial
+            </div>
           </div>
         </div>
       </div>
@@ -94,12 +139,18 @@ export default function Dashboard() {
       )}
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <section className="card p-5 min-w-0">
+        <section className="card p-5 min-w-0 flex flex-col">
           <h2 className="font-bold mb-3">Top open risk</h2>
-          <div className="space-y-3">
-            {data.top_risk.length === 0 && <p className="text-sm text-slate-500">No open changes.</p>}
+          <div className="space-y-3 flex-1 flex flex-col">
+            {data.top_risk.length === 0 && (
+              <div className="flex-1 p-6 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                <p className="text-sm font-medium text-slate-900">All clear</p>
+                <p className="text-xs text-slate-500 mt-1">No open high-risk changes right now.</p>
+              </div>
+            )}
             {data.top_risk.map((c) => (
-              <Link key={c.id} to={`/changes/${c.id}`} className="block min-w-0 rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40">
+              <Link key={c.id} to={`/changes/${c.id}`} className="block min-w-0 rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   <ScoreBadge score={c.risk_score} />
                   <span className="truncate font-semibold text-sm">{c.title}</span>
@@ -114,12 +165,18 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="card p-5 min-w-0">
+        <section className="card p-5 min-w-0 flex flex-col">
           <h2 className="font-bold mb-3">Upcoming windows</h2>
-          <div className="space-y-3">
-            {data.upcoming.length === 0 && <p className="text-sm text-slate-500">Nothing scheduled yet.</p>}
+          <div className="space-y-3 flex-1 flex flex-col">
+            {data.upcoming.length === 0 && (
+              <div className="flex-1 p-6 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                <FileX className="w-8 h-8 text-slate-400 mb-2" />
+                <p className="text-sm font-medium text-slate-900">Nothing scheduled</p>
+                <p className="text-xs text-slate-500 mt-1">There are no upcoming change windows.</p>
+              </div>
+            )}
             {data.upcoming.map((c) => (
-              <Link key={c.id} to={`/changes/${c.id}`} className="block min-w-0 rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40">
+              <Link key={c.id} to={`/changes/${c.id}`} className="block min-w-0 rounded-lg border border-slate-100 p-3 hover:border-brand-200 hover:bg-brand-50/40 transition-colors">
                 <div className="flex items-center justify-between gap-2 min-w-0">
                   <span className="truncate font-semibold text-sm">{c.title}</span>
                   <StatusBadge status={c.status} />
@@ -134,11 +191,14 @@ export default function Dashboard() {
   )
 }
 
-function Kpi({ label, value, accent = 'text-navy' }: { label: string; value: number; accent?: string }) {
+function Kpi({ label, value, accent = 'text-navy', icon: Icon }: { label: string; value: number; accent?: string; icon?: any }) {
   return (
-    <div className="card p-4 min-w-0">
-      <div className="metric-label truncate">{label}</div>
-      <div className={`mt-1 hero-stat !text-[2rem] ${accent}`}>{value}</div>
+    <div className="card p-4 min-w-0 flex flex-col justify-between">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className={clsx("w-4 h-4 shrink-0", accent.replace('text-', 'text-opacity-80 text-'))} />}
+        <div className="metric-label truncate">{label}</div>
+      </div>
+      <div className={`mt-2 hero-stat !text-[2rem] ${accent}`}>{value}</div>
     </div>
   )
 }
